@@ -15,7 +15,8 @@ import { Picker } from '@react-native-picker/picker';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { FormInput } from '../components/FormInput';
 import { SliderInput } from '../components/SliderInput';
-import { colors, typography, spacing, borderRadius } from '../styles/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { typography, spacing, borderRadius } from '../styles/theme';
 
 const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
 
@@ -26,6 +27,8 @@ const formatTime = (date: Date): string => {
 };
 
 export const QuestionnaireScreen: React.FC = () => {
+    const { colors } = useTheme();
+
     // Form state
     const [age, setAge] = useState<string>('');
     const [gender, setGender] = useState<string>('');
@@ -92,23 +95,39 @@ export const QuestionnaireScreen: React.FC = () => {
 
     return (
         <ScrollView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: colors.background }]}
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
         >
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerEmoji}>📋</Text>
-                <Text style={styles.title}>Your Digital Profile</Text>
-                <Text style={styles.subtitle}>
+                <Text style={[styles.title, { color: colors.text }]}>
+                    Your Digital Profile
+                </Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                     Tell us about your daily habits so we can provide personalized insights.
                 </Text>
             </View>
 
             {/* Form */}
-            <View style={styles.card}>
+            <View
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.cardBorder,
+                        shadowColor: colors.shadow,
+                    },
+                ]}
+            >
                 {/* Section: Personal Info */}
-                <Text style={styles.sectionTitle}>👤 Personal Information</Text>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionEmoji}>👤</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                        Personal Information
+                    </Text>
+                </View>
 
                 <FormInput
                     label="Age"
@@ -119,14 +138,26 @@ export const QuestionnaireScreen: React.FC = () => {
                 />
 
                 <View style={styles.fieldContainer}>
-                    <Text style={styles.fieldLabel}>Gender</Text>
-                    <View style={styles.pickerWrapper}>
+                    <Text style={[styles.fieldLabel, { color: colors.text }]}>Gender</Text>
+                    <View
+                        style={[
+                            styles.pickerWrapper,
+                            {
+                                backgroundColor: colors.surfaceElevated,
+                                borderColor: colors.border,
+                            },
+                        ]}
+                    >
                         <Picker
                             selectedValue={gender}
                             onValueChange={(value) => setGender(value)}
-                            style={styles.picker}
+                            style={[styles.picker, { color: colors.text }]}
                         >
-                            <Picker.Item label="Select gender..." value="" color={colors.textLight} />
+                            <Picker.Item
+                                label="Select gender..."
+                                value=""
+                                color={colors.textLight}
+                            />
                             {genderOptions.map((option) => (
                                 <Picker.Item key={option} label={option} value={option} />
                             ))}
@@ -135,9 +166,23 @@ export const QuestionnaireScreen: React.FC = () => {
                 </View>
             </View>
 
-            <View style={styles.card}>
+            <View
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.cardBorder,
+                        shadowColor: colors.shadow,
+                    },
+                ]}
+            >
                 {/* Section: Screen Time */}
-                <Text style={styles.sectionTitle}>📱 Screen Usage</Text>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionEmoji}>📱</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                        Screen Usage
+                    </Text>
+                </View>
 
                 <SliderInput
                     label="Average daily screen time"
@@ -151,19 +196,43 @@ export const QuestionnaireScreen: React.FC = () => {
                 />
             </View>
 
-            <View style={styles.card}>
+            <View
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.cardBorder,
+                        shadowColor: colors.shadow,
+                    },
+                ]}
+            >
                 {/* Section: Sleep */}
-                <Text style={styles.sectionTitle}>😴 Sleep Schedule</Text>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionEmoji}>😴</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                        Sleep Schedule
+                    </Text>
+                </View>
 
                 {/* Bed Time */}
                 <View style={styles.fieldContainer}>
-                    <Text style={styles.fieldLabel}>Average bedtime</Text>
+                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                        Average bedtime
+                    </Text>
                     <TouchableOpacity
-                        style={styles.timeButton}
+                        style={[
+                            styles.timeButton,
+                            {
+                                backgroundColor: colors.surfaceElevated,
+                                borderColor: colors.border,
+                            },
+                        ]}
                         onPress={() => setShowBedTimePicker(true)}
                     >
                         <Text style={styles.timeIcon}>🌙</Text>
-                        <Text style={styles.timeText}>{formatTime(bedTime)}</Text>
+                        <Text style={[styles.timeText, { color: colors.primary }]}>
+                            {formatTime(bedTime)}
+                        </Text>
                     </TouchableOpacity>
                     {showBedTimePicker && (
                         <DateTimePicker
@@ -177,13 +246,23 @@ export const QuestionnaireScreen: React.FC = () => {
 
                 {/* Wake Time */}
                 <View style={styles.fieldContainer}>
-                    <Text style={styles.fieldLabel}>Average wake time</Text>
+                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                        Average wake time
+                    </Text>
                     <TouchableOpacity
-                        style={styles.timeButton}
+                        style={[
+                            styles.timeButton,
+                            {
+                                backgroundColor: colors.surfaceElevated,
+                                borderColor: colors.border,
+                            },
+                        ]}
                         onPress={() => setShowWakeTimePicker(true)}
                     >
                         <Text style={styles.timeIcon}>☀️</Text>
-                        <Text style={styles.timeText}>{formatTime(wakeTime)}</Text>
+                        <Text style={[styles.timeText, { color: colors.primary }]}>
+                            {formatTime(wakeTime)}
+                        </Text>
                     </TouchableOpacity>
                     {showWakeTimePicker && (
                         <DateTimePicker
@@ -206,9 +285,23 @@ export const QuestionnaireScreen: React.FC = () => {
                 />
             </View>
 
-            <View style={styles.card}>
+            <View
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.cardBorder,
+                        shadowColor: colors.shadow,
+                    },
+                ]}
+            >
                 {/* Section: Stress */}
-                <Text style={styles.sectionTitle}>🧠 Stress Level</Text>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionEmoji}>🧠</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                        Stress Level
+                    </Text>
+                </View>
 
                 <SliderInput
                     label="Perceived stress level"
@@ -228,7 +321,7 @@ export const QuestionnaireScreen: React.FC = () => {
                     onPress={handleSubmit}
                     style={styles.submitButton}
                 />
-                <Text style={styles.disclaimer}>
+                <Text style={[styles.disclaimer, { color: colors.textLight }]}>
                     Your data is stored locally and will only be sent when connected to the
                     analysis API.
                 </Text>
@@ -240,7 +333,6 @@ export const QuestionnaireScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.background,
     },
     contentContainer: {
         padding: spacing.lg,
@@ -257,32 +349,36 @@ const styles = StyleSheet.create({
     title: {
         fontSize: typography.title - 4,
         fontWeight: '800',
-        color: colors.text,
         textAlign: 'center',
         marginBottom: spacing.xs,
     },
     subtitle: {
         fontSize: typography.caption,
-        color: colors.textSecondary,
         textAlign: 'center',
         lineHeight: 20,
     },
     card: {
-        backgroundColor: colors.surface,
         borderRadius: borderRadius.lg,
+        borderWidth: 1,
         padding: spacing.lg,
         marginBottom: spacing.md,
-        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
-        shadowRadius: 8,
+        shadowRadius: 10,
         elevation: 2,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.lg,
+        gap: spacing.sm,
+    },
+    sectionEmoji: {
+        fontSize: 20,
     },
     sectionTitle: {
         fontSize: typography.subtitle,
         fontWeight: '700',
-        color: colors.text,
-        marginBottom: spacing.lg,
     },
     fieldContainer: {
         marginBottom: spacing.lg,
@@ -290,27 +386,21 @@ const styles = StyleSheet.create({
     fieldLabel: {
         fontSize: typography.caption,
         fontWeight: '600',
-        color: colors.text,
         marginBottom: spacing.sm,
         letterSpacing: 0.3,
     },
     pickerWrapper: {
-        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: colors.border,
         borderRadius: borderRadius.sm,
         overflow: 'hidden',
     },
     picker: {
         height: 50,
-        color: colors.text,
     },
     timeButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: colors.border,
         borderRadius: borderRadius.sm,
         paddingVertical: spacing.sm + 4,
         paddingHorizontal: spacing.md,
@@ -322,7 +412,6 @@ const styles = StyleSheet.create({
     timeText: {
         fontSize: typography.body,
         fontWeight: '600',
-        color: colors.primary,
     },
     submitSection: {
         marginTop: spacing.md,
@@ -333,7 +422,6 @@ const styles = StyleSheet.create({
     },
     disclaimer: {
         fontSize: typography.small,
-        color: colors.textLight,
         textAlign: 'center',
         marginTop: spacing.md,
         lineHeight: 18,

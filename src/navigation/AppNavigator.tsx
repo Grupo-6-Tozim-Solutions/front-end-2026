@@ -1,9 +1,11 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useMemo } from 'react';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { QuestionnaireScreen } from '../screens/QuestionnaireScreen';
-import { colors, typography } from '../styles/theme';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { useTheme } from '../contexts/ThemeContext';
+import { typography } from '../styles/theme';
 
 export type RootStackParamList = {
     Welcome: undefined;
@@ -13,8 +15,23 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AppNavigator: React.FC = () => {
+    const { isDark, colors } = useTheme();
+
+    const navigationTheme = useMemo(() => ({
+        ...(isDark ? DarkTheme : DefaultTheme),
+        colors: {
+            ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+            primary: colors.primary,
+            background: colors.background,
+            card: colors.surface,
+            text: colors.text,
+            border: colors.border,
+            notification: colors.highlight,
+        },
+    }), [isDark, colors]);
+
     return (
-        <NavigationContainer>
+        <NavigationContainer theme={navigationTheme}>
             <Stack.Navigator
                 initialRouteName="Welcome"
                 screenOptions={{
@@ -30,6 +47,7 @@ export const AppNavigator: React.FC = () => {
                     contentStyle: {
                         backgroundColor: colors.background,
                     },
+                    headerRight: () => <ThemeToggle />,
                 }}
             >
                 <Stack.Screen

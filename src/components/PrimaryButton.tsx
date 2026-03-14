@@ -6,7 +6,8 @@ import {
     ViewStyle,
     TextStyle,
 } from 'react-native';
-import { colors, typography, borderRadius, spacing } from '../styles/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { typography, borderRadius, spacing } from '../styles/theme';
 
 interface PrimaryButtonProps {
     title: string;
@@ -23,39 +24,47 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
     textStyle,
     disabled = false,
 }) => {
+    const { colors } = useTheme();
+
     return (
         <TouchableOpacity
-            style={[styles.button, disabled && styles.disabled, style]}
+            style={[
+                styles.button,
+                {
+                    backgroundColor: colors.primary,
+                    shadowColor: colors.shadow,
+                },
+                disabled && {
+                    backgroundColor: colors.textLight,
+                    shadowOpacity: 0,
+                    elevation: 0,
+                },
+                style,
+            ]}
             onPress={onPress}
             activeOpacity={0.8}
             disabled={disabled}
         >
-            <Text style={[styles.text, textStyle]}>{title}</Text>
+            <Text style={[styles.text, { color: colors.white }, textStyle]}>
+                {title}
+            </Text>
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
     button: {
-        backgroundColor: colors.primary,
         paddingVertical: spacing.md,
         paddingHorizontal: spacing.xl,
         borderRadius: borderRadius.md,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
         elevation: 4,
     },
-    disabled: {
-        backgroundColor: colors.textLight,
-        shadowOpacity: 0,
-        elevation: 0,
-    },
     text: {
-        color: colors.white,
         fontSize: typography.subtitle,
         fontWeight: '700',
         letterSpacing: 0.5,

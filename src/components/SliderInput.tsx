@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { colors, typography, spacing } from '../styles/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { typography, spacing } from '../styles/theme';
 
 interface SliderInputProps {
     label: string;
@@ -26,11 +27,13 @@ export const SliderInput: React.FC<SliderInputProps> = ({
     step = 1,
     unit = '',
 }) => {
+    const { colors } = useTheme();
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.label}>{label}</Text>
-                <Text style={styles.value}>
+                <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+                <Text style={[styles.value, { color: colors.primary }]}>
                     {value}
                     {unit ? ` ${unit}` : ''}
                 </Text>
@@ -48,8 +51,12 @@ export const SliderInput: React.FC<SliderInputProps> = ({
             />
             {(minLabel || maxLabel) && (
                 <View style={styles.legends}>
-                    <Text style={styles.legendText}>{minLabel || min}</Text>
-                    <Text style={styles.legendText}>{maxLabel || max}</Text>
+                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+                        {minLabel || min}
+                    </Text>
+                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+                        {maxLabel || max}
+                    </Text>
                 </View>
             )}
         </View>
@@ -69,13 +76,11 @@ const styles = StyleSheet.create({
     label: {
         fontSize: typography.caption,
         fontWeight: '600',
-        color: colors.text,
         letterSpacing: 0.3,
     },
     value: {
         fontSize: typography.caption,
         fontWeight: '700',
-        color: colors.primary,
     },
     slider: {
         width: '100%',
@@ -88,6 +93,5 @@ const styles = StyleSheet.create({
     },
     legendText: {
         fontSize: typography.small,
-        color: colors.textSecondary,
     },
 });

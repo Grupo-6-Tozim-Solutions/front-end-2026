@@ -6,7 +6,8 @@ import {
     StyleSheet,
     KeyboardTypeOptions,
 } from 'react-native';
-import { colors, typography, borderRadius, spacing } from '../styles/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { typography, borderRadius, spacing } from '../styles/theme';
 
 interface FormInputProps {
     label: string;
@@ -23,11 +24,20 @@ export const FormInput: React.FC<FormInputProps> = ({
     placeholder,
     keyboardType = 'default',
 }) => {
+    const { colors } = useTheme();
+
     return (
         <View style={styles.container}>
-            <Text style={styles.label}>{label}</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
             <TextInput
-                style={styles.input}
+                style={[
+                    styles.input,
+                    {
+                        backgroundColor: colors.surfaceElevated,
+                        borderColor: colors.border,
+                        color: colors.text,
+                    },
+                ]}
                 value={value}
                 onChangeText={onChange}
                 placeholder={placeholder}
@@ -45,18 +55,14 @@ const styles = StyleSheet.create({
     label: {
         fontSize: typography.caption,
         fontWeight: '600',
-        color: colors.text,
         marginBottom: spacing.sm,
         letterSpacing: 0.3,
     },
     input: {
-        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: colors.border,
         borderRadius: borderRadius.sm,
         paddingVertical: spacing.sm + 4,
         paddingHorizontal: spacing.md,
         fontSize: typography.body,
-        color: colors.text,
     },
 });
