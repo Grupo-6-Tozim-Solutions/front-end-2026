@@ -73,7 +73,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
             <View style={styles.footer}>
                 <PrimaryButton
                     title="Start Analysis"
-                    onPress={() => navigation.navigate('Questionnaire')}
+                    onPress={() => navigation.navigate('Permissions')}
                     style={styles.button}
                 />
             </View>

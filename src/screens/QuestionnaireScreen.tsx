@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     Alert,
     Platform,
     TouchableOpacity,
+    ActivityIndicator,
 } from 'react-native';
 import DateTimePicker, {
     DateTimePickerEvent,
@@ -16,7 +17,11 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { FormInput } from '../components/FormInput';
 import { SliderInput } from '../components/SliderInput';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAppContext } from '../contexts/AppContext';
+import { deviceDataService } from '../services/deviceData';
+import { permissionsService } from '../services/permissions';
 import { typography, spacing, borderRadius } from '../styles/theme';
+import { UserProfile } from '../types/user';
 
 const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
 
@@ -26,13 +31,19 @@ const formatTime = (date: Date): string => {
     return `${hours}:${minutes}`;
 };
 
-export const QuestionnaireScreen: React.FC = () => {
+interface QuestionnaireScreenProps {
+    navigation?: any;
+}
+
+export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ navigation }) => {
     const { colors } = useTheme();
+    const appContext = useAppContext();
 
     // Form state
     const [age, setAge] = useState<string>('');
     const [gender, setGender] = useState<string>('');
-    const [screenTime, setScreenTime] = useState<number>(4);
+    const [screenTime, setScreenTime] = useState<string>('');
+    const [screenTimesuggestion, setScreenTimeSuggestion] = useState<string>('');
     const [bedTime, setBedTime] = useState<Date>(new Date(2000, 0, 1, 23, 0));
     const [wakeTime, setWakeTime] = useState<Date>(new Date(2000, 0, 1, 7, 0));
     const [sleepQuality, setSleepQuality] = useState<number>(5);
@@ -41,6 +52,48 @@ export const QuestionnaireScreen: React.FC = () => {
     // Time picker visibility
     const [showBedTimePicker, setShowBedTimePicker] = useState<boolean>(false);
     const [showWakeTimePicker, setShowWakeTimePicker] = useState<boolean>(false);
+    
+    // Loading state
+    const [isLoadingDeviceData, setIsLoadingDeviceData] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // ===== Load device data on mount =====
+    useEffect(() => {
+        const loadDeviceData = async () => {
+            try {
+                setIsLoadingDeviceData(true);
+
+                // Request permissions first
+                console.log('[Questionnaire] Requesting permissions...');
+                await permissionsService.requestAllPermissions();
+
+                // Try to get screen time
+                console.log('[Questionnaire] Fetching screen time data...');
+                const screenTimeData = await deviceDataService.getScreenTimeData();
+                if (screenTimeData !== null) {
+                    // screenTimeData in minutes, convert to hours
+                    const hours = Math.round(screenTimeData / 60);
+                    setScreenTimeSuggestion(`${hours} hours (from device)`);
+                    setScreenTime(hours.toString());
+                } else {
+                    // Fallback: default suggestion
+                    setScreenTimeSuggestion('–– Unable to read from device, please enter manually');
+                    setScreenTime('');
+                }
+
+                // Get device info for logging
+                const deviceInfo = await deviceDataService.getDeviceInfo();
+                console.log('[Questionnaire] Device info:', deviceInfo);
+            } catch (error) {
+                console.error('[Questionnaire] Error loading device data:', error);
+                setScreenTimeSuggestion('–– Unable to read device data');
+            } finally {
+                setIsLoadingDeviceData(false);
+            }
+        };
+
+        loadDeviceData();
+    }, []);
 
     const onBedTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
         setShowBedTimePicker(Platform.OS === 'ios');
@@ -66,31 +119,99 @@ export const QuestionnaireScreen: React.FC = () => {
             Alert.alert('Validation', 'Please select your gender.');
             return false;
         }
+        if (!screenTime.trim()) {
+            Alert.alert('Validation', 'Please enter your daily screen time.');
+            return false;
+        }
+        const screenTimeNum = parseFloat(screenTime);
+        if (isNaN(screenTimeNum) || screenTimeNum < 0 || screenTimeNum > 24) {
+            Alert.alert('Validation', 'Please enter a valid screen time (0–24 hours).');
+            return false;
+        }
         return true;
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!validate()) return;
 
-        const data = {
-            age: parseInt(age, 10),
-            gender,
-            screenTime,
-            bedTime: formatTime(bedTime),
-            wakeTime: formatTime(wakeTime),
-            sleepQuality,
-            stressLevel,
-        };
+        try {
+            setIsSubmitting(true);
 
-        console.log('=== Questionnaire Data ===');
-        console.log(JSON.stringify(data, null, 2));
-        console.log('=== Ready for API submission ===');
+            const userData: UserProfile = {
+                age,
+                gender,
+                screenTimePerDay: screenTime,
+                bedTime: formatTime(bedTime),
+                wakeTime: formatTime(wakeTime),
+                sleepQuality: sleepQuality.toString(),
+                stressLevel: stressLevel.toString(),
+                createdAt: new Date().toISOString(),
+            };
 
-        Alert.alert(
-            'Data Collected ✅',
-            'Your responses have been recorded. In a future version, these will be sent to the analysis API.',
-            [{ text: 'OK' }]
-        );
+            // Save to context (includes local + async sync)
+            await appContext.updateUserData(userData);
+            
+            // Mark as onboarded
+            await appContext.setOnboarded(true);
+
+            console.log('=== Questionnaire Data Saved ===');
+            console.log(JSON.stringify(userData, null, 2));
+
+            Alert.alert(
+                'Profile Created ✅',
+                'Your profile has been saved. Let\'s get started with tracking your sleep!',
+                [
+                    {
+                        text: 'Continue',
+                        onPress: () => {
+                            // Navigation será automática via AppNavigator quando isOnboarded = true
+                            // Mas se houver navegação explícita, pode descomente:
+                            // navigation?.replace('Main');
+                        },
+                    },
+                ]
+            );
+        } catch (error) {
+            console.error('[Questionnaire] Error submitting:', error);
+            Alert.alert(
+                'Error',
+                'Failed to save your profile. Please try again.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleSkip = async () => {
+        try {
+            setIsSubmitting(true);
+
+            // Create dummy data for testing
+            const userData: UserProfile = {
+                age: '25',
+                gender: 'Other',
+                screenTimePerDay: '5',
+                bedTime: '23:00',
+                wakeTime: '07:00',
+                sleepQuality: '7',
+                stressLevel: '5',
+                createdAt: new Date().toISOString(),
+            };
+
+            // Save to context
+            await appContext.updateUserData(userData);
+            
+            // Mark as onboarded
+            await appContext.setOnboarded(true);
+
+            console.log('[Questionnaire] Skipped for testing - Default data saved');
+        } catch (error) {
+            console.error('[Questionnaire] Error skipping:', error);
+            Alert.alert('Error', 'Failed to skip setup. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -182,18 +303,32 @@ export const QuestionnaireScreen: React.FC = () => {
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
                         Screen Usage
                     </Text>
+                    {isLoadingDeviceData && <ActivityIndicator size="small" color={colors.primary} />}
                 </View>
 
-                <SliderInput
-                    label="Average daily screen time"
-                    value={screenTime}
-                    min={0}
-                    max={12}
-                    onChange={(v) => setScreenTime(Math.round(v))}
-                    minLabel="0h"
-                    maxLabel="12h"
-                    unit="hours"
-                />
+                {isLoadingDeviceData ? (
+                    <View style={styles.loaderContainer}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={[styles.loaderText, { color: colors.textSecondary }]}>
+                            Reading device data...
+                        </Text>
+                    </View>
+                ) : (
+                    <>
+                        {screenTimesuggestion && (
+                            <Text style={[styles.suggestion, { color: colors.primary }]}>
+                                💡 {screenTimesuggestion}
+                            </Text>
+                        )}
+                        <FormInput
+                            label="Average daily screen time (hours)"
+                            value={screenTime}
+                            onChange={setScreenTime}
+                            placeholder="e.g., 5"
+                            keyboardType="decimal-pad"
+                        />
+                    </>
+                )}
             </View>
 
             <View
@@ -316,15 +451,35 @@ export const QuestionnaireScreen: React.FC = () => {
 
             {/* Submit */}
             <View style={styles.submitSection}>
-                <PrimaryButton
-                    title="Generate My Analysis"
-                    onPress={handleSubmit}
-                    style={styles.submitButton}
-                />
-                <Text style={[styles.disclaimer, { color: colors.textLight }]}>
-                    Your data is stored locally and will only be sent when connected to the
-                    analysis API.
-                </Text>
+                {isSubmitting ? (
+                    <View style={styles.submittingContainer}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={[styles.submittingText, { color: colors.textSecondary }]}>
+                            Saving your profile...
+                        </Text>
+                    </View>
+                ) : (
+                    <>
+                        <PrimaryButton
+                            title="Generate My Analysis"
+                            onPress={handleSubmit}
+                            style={styles.submitButton}
+                            disabled={isLoadingDeviceData || isSubmitting}
+                        />
+                        <TouchableOpacity
+                            onPress={handleSkip}
+                            disabled={isSubmitting}
+                            style={styles.skipButton}
+                        >
+                            <Text style={[styles.skipButtonText, { color: colors.textSecondary }]}>
+                                Skip for testing
+                            </Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.disclaimer, { color: colors.textLight }]}>
+                            Your data is stored locally and synced securely when connected.
+                        </Text>
+                    </>
+                )}
             </View>
         </ScrollView>
     );
@@ -420,10 +575,43 @@ const styles = StyleSheet.create({
     submitButton: {
         width: '100%',
     },
+    skipButton: {
+        marginTop: spacing.md,
+        paddingVertical: spacing.sm,
+    },
+    skipButtonText: {
+        fontSize: typography.small,
+        fontStyle: 'italic',
+        textDecorationLine: 'underline',
+    },
     disclaimer: {
         fontSize: typography.small,
         textAlign: 'center',
         marginTop: spacing.md,
         lineHeight: 18,
+    },
+    loaderContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: spacing.lg,
+    },
+    loaderText: {
+        fontSize: typography.body,
+        marginTop: spacing.md,
+    },
+    submittingContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: spacing.lg,
+    },
+    submittingText: {
+        fontSize: typography.body,
+        marginTop: spacing.md,
+    },
+    suggestion: {
+        fontSize: typography.caption,
+        marginBottom: spacing.md,
+        paddingHorizontal: spacing.sm,
+        fontWeight: '500',
     },
 });
