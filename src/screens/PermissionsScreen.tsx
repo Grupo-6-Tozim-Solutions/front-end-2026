@@ -13,6 +13,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { permissionsService } from '../services/permissions';
 import { PermissionStatus } from '../types/user';
 import { typography, spacing, borderRadius } from '../styles/theme';
+import { translations } from '../languages/pt';
 
 interface PermissionsScreenProps {
     navigation?: any;
@@ -39,11 +40,11 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
             if (Platform.OS === 'android' &&
                 (status.screenTime === 'granted' || status.sensors === 'granted')) {
                 Alert.alert(
-                    'Permissions Granted',
-                    'Thank you! We can now read more accurate data from your device.',
+                    translations.permissions.granted,
+                    translations.permissions.grantedMessage,
                     [
                         {
-                            text: 'Continue',
+                            text: translations.common.continue,
                             onPress: () => handleContinue(),
                         },
                     ]
@@ -51,11 +52,11 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
             } else {
                 // Permissões não foram todas granted, mas continuar mesmo assim
                 Alert.alert(
-                    'Permissions',
-                    'Some permissions were not granted. You can still use the app, but some features may be limited.',
+                    translations.permissions.title,
+                    translations.permissions.deniedMessage,
                     [
                         {
-                            text: 'Continue',
+                            text: translations.common.continue,
                             onPress: () => handleContinue(),
                         },
                     ]
@@ -63,7 +64,7 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
             }
         } catch (error) {
             console.error('[PermissionsScreen] Error requesting permissions:', error);
-            Alert.alert('Error', 'Failed to request permissions. Please try again.');
+            Alert.alert(translations.common.error, translations.permissions.permissionError);
         } finally {
             setIsRequesting(false);
         }
@@ -71,16 +72,16 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
 
     const handleSkip = () => {
         Alert.alert(
-            'Skip Permissions?',
-            'Some personalization features might not work perfectly, but you can continue using the app.',
+            translations.permissions.skipConfirm,
+            translations.permissions.skipMessage,
             [
                 {
-                    text: 'Cancel',
+                    text: translations.common.cancel,
                     onPress: () => { },
                     style: 'cancel',
                 },
                 {
-                    text: 'Skip',
+                    text: translations.common.skip,
                     onPress: () => handleContinue(),
                     style: 'default',
                 },
@@ -120,11 +121,11 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
             <View style={styles.header}>
                 <Text style={styles.headerEmoji}>🔐</Text>
                 <Text style={[styles.title, { color: colors.text }]}>
-                    Enable Permissions
+                    Ativar Permissões
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    To provide personalized sleep analysis, we need to access some device information.
-                    Your data stays on your device and is never shared.
+                    Para fornecer análise personalizada de sono, precisamos acessar algumas informações do dispositivo.
+                    Seus dados ficam no seu dispositivo e nunca são compartilhados.
                 </Text>
             </View>
 
@@ -142,26 +143,26 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>📊</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Required Permissions
+                        Permissões Requeridas
                     </Text>
                 </View>
 
                 {permissionItem(
                     '📱',
-                    'Device Usage',
-                    'Read your daily app usage time to correlate with sleep patterns'
+                    'Uso do Dispositivo',
+                    'Ler seu tempo de uso diário de aplicativos para correlacionar com padrões de sono'
                 )}
 
                 {permissionItem(
                     '📍',
-                    'Motion Sensors',
-                    'Detect movement patterns to better understand your sleep'
+                    'Sensores de Movimento',
+                    'Detectar padrões de movimento para melhor entender seu sono'
                 )}
 
                 {permissionItem(
                     '🔋',
-                    'Battery & Device Info',
-                    'Monitor device charging status and system information'
+                    'Bateria & Informações do Dispositivo',
+                    'Monitorar status de carregamento do dispositivo e informações do sistema'
                 )}
             </View>
 
@@ -177,19 +178,19 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
             >
                 <Text style={styles.privacyEmoji}>🛡️</Text>
                 <Text style={[styles.privacyTitle, { color: colors.text }]}>
-                    Your Privacy is Protected
+                    Sua Privacidade está Protegida
                 </Text>
                 <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
-                    • All data is stored locally on your device{'\n'}
-                    • We never access personal apps or messages{'\n'}
-                    • Syncing is encrypted and optional{'\n'}
+                    • Todos os dados são armazenados localmente no seu dispositivo{'\n'}
+                    • Nunca acessamos aplicativos pessoais ou mensagens{'\n'}
+                    • A sincronização é criptografada e opcional{'\n'}
                 </Text>
             </View>
 
             {/* Buttons */}
             <View style={styles.buttonContainer}>
                 <PrimaryButton
-                    title={isRequesting ? 'Requesting...' : 'Enable Permissions'}
+                    title={isRequesting ? 'Requerendo...' : 'Ativar Permissões'}
                     onPress={handleRequestPermissions}
                     disabled={isRequesting}
                     style={styles.primaryButton}
@@ -201,7 +202,7 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
                     style={styles.secondaryButton}
                 >
                     <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
-                        Skip for now
+                        Pular por enquanto
                     </Text>
                 </TouchableOpacity>
             </View>

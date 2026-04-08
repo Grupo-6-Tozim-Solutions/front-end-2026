@@ -19,6 +19,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { typography, spacing, borderRadius } from '../styles/theme';
 import { SleepLog } from '../types/user';
+import { translations } from '../languages/pt';
 
 interface SleepLoggingScreenProps {
     navigation?: any;
@@ -69,13 +70,13 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
 
     const validate = (): boolean => {
         if (!hoursSlept.trim()) {
-            Alert.alert('Validation', 'Please enter how many hours you slept.');
+            Alert.alert(translations.common.validation, translations.sleepLogging.validationHours);
             return false;
         }
 
         const hours = parseFloat(hoursSlept);
         if (isNaN(hours) || hours < 0 || hours > 24) {
-            Alert.alert('Validation', 'Please enter a valid number of hours (0–24).');
+            Alert.alert(translations.common.validation, translations.sleepLogging.validationHoursRange);
             return false;
         }
 
@@ -105,11 +106,11 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
             await appContext.addSleepLog(sleepLog);
 
             Alert.alert(
-                'Sleep Logged ✅',
-                'Your sleep has been recorded and scheduled for sync.',
+                translations.sleepLogging.success,
+                translations.sleepLogging.successMessage,
                 [
                     {
-                        text: 'OK',
+                        text: translations.common.ok,
                         onPress: () => {
                             // Reset form
                             setHoursSlept('');
@@ -126,9 +127,9 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
         } catch (error) {
             console.error('[SleepLogging] Error submitting:', error);
             Alert.alert(
-                'Error',
-                'Failed to save sleep log. Please try again.',
-                [{ text: 'OK' }]
+                translations.common.error,
+                translations.sleepLogging.errorMessage,
+                [{ text: translations.common.ok }]
             );
         } finally {
             setIsSubmitting(false);
@@ -145,10 +146,10 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
             <View style={styles.header}>
                 <Text style={styles.headerEmoji}>😴</Text>
                 <Text style={[styles.title, { color: colors.text }]}>
-                    Log Your Sleep
+                    {translations.sleepLogging.title}
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    Tell us about last night's rest.
+                    {translations.sleepLogging.subtitle}
                 </Text>
             </View>
 
@@ -166,14 +167,14 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>📅</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Sleep Date & Times
+                        {translations.sleepLogging.dateAndTimes}
                     </Text>
                 </View>
 
                 {/* Date Picker */}
                 <View style={styles.fieldContainer}>
                     <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        Sleep Date
+                        {translations.sleepLogging.sleepDate}
                     </Text>
                     <TouchableOpacity
                         style={[
@@ -202,7 +203,7 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
                 {/* Bed Time */}
                 <View style={styles.fieldContainer}>
                     <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        Bedtime
+                        {translations.sleepLogging.bedtime}
                     </Text>
                     <TouchableOpacity
                         style={[
@@ -232,7 +233,7 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
                 {/* Wake Time */}
                 <View style={styles.fieldContainer}>
                     <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        Wake Time
+                        {translations.sleepLogging.wakeTime}
                     </Text>
                     <TouchableOpacity
                         style={[
@@ -274,15 +275,15 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>⏱️</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Sleep Duration
+                        {translations.sleepLogging.sleepDuration}
                     </Text>
                 </View>
 
                 <FormInput
-                    label="Hours of sleep"
+                    label={translations.sleepLogging.hoursOfSleep}
                     value={hoursSlept}
                     onChange={setHoursSlept}
-                    placeholder="e.g., 7.5"
+                    placeholder={translations.sleepLogging.placeholder}
                     keyboardType="decimal-pad"
                 />
             </View>
@@ -301,18 +302,18 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>⭐</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Sleep Quality
+                        {translations.sleepLogging.sleepQuality}
                     </Text>
                 </View>
 
                 <SliderInput
-                    label="How was the quality of your sleep?"
+                    label={translations.sleepLogging.howWasQuality}
                     value={quality}
                     min={1}
                     max={10}
                     onChange={(v) => setQuality(Math.round(v))}
-                    minLabel="1 = Very Poor"
-                    maxLabel="10 = Excellent"
+                    minLabel={translations.sleepLogging.veryPoor}
+                    maxLabel={translations.sleepLogging.excellent}
                 />
             </View>
 
@@ -330,15 +331,15 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>📝</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Notes (Optional)
+                        {translations.sleepLogging.notes}
                     </Text>
                 </View>
 
                 <FormInput
-                    label="Any additional notes?"
+                    label={translations.sleepLogging.anyNotes}
                     value={notes}
                     onChange={setNotes}
-                    placeholder="e.g., had more coffee, stressed about work..."
+                    placeholder={translations.sleepLogging.notesPlaceholder}
                 />
             </View>
 
@@ -348,18 +349,18 @@ export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigati
                     <View style={styles.submittingContainer}>
                         <ActivityIndicator size="large" color={colors.primary} />
                         <Text style={[styles.submittingText, { color: colors.textSecondary }]}>
-                            Saving your sleep log...
+                            {translations.sleepLogging.saving}
                         </Text>
                     </View>
                 ) : (
                     <>
                         <PrimaryButton
-                            title="Save Sleep Log"
+                            title={translations.sleepLogging.saveButton}
                             onPress={handleSubmit}
                             style={styles.submitButton}
                         />
                         <Text style={[styles.disclaimer, { color: colors.textLight }]}>
-                            Your sleep data will be synced securely.
+                            {translations.sleepLogging.disclaimer}
                         </Text>
                     </>
                 )}

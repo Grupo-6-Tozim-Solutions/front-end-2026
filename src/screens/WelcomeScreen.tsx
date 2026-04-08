@@ -4,11 +4,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useTheme } from '../contexts/ThemeContext';
 import { typography, spacing } from '../styles/theme';
-
-type RootStackParamList = {
-    Welcome: undefined;
-    Questionnaire: undefined;
-};
+import { translations } from '../languages/pt';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 type WelcomeScreenProps = {
     navigation: NativeStackNavigationProp<RootStackParamList, 'Welcome'>;
@@ -29,7 +26,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
                 style={styles.themeToggle}
                 onPress={toggleTheme}
                 activeOpacity={0.7}
-                accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                accessibilityLabel={isDark ? translations.welcome.switchToLight : translations.welcome.switchToDark}
             >
                 <Text style={styles.toggleIcon}>{isDark ? '☀️' : '🌙'}</Text>
             </TouchableOpacity>
@@ -52,13 +49,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
                 </View>
 
                 {/* Titles */}
-                <Text style={[styles.appName, { color: colors.primary }]}>SLEEP & SCREEN</Text>
+                <Text style={[styles.appName, { color: colors.primary }]}>{translations.welcome.appName}</Text>
                 <Text style={[styles.title, { color: colors.text }]}>
-                    Understand Your{'\n'}Digital Habits
+                    {translations.welcome.title}
                 </Text>
                 <Text style={[styles.description, { color: colors.textSecondary }]}>
-                    Analyze your screen time, sleep patterns and stress indicators.{' '}
-                    Get personalized insights based on real population data.
+                    {translations.welcome.description}
                 </Text>
             </View>
 
@@ -72,7 +68,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
             {/* CTA */}
             <View style={styles.footer}>
                 <PrimaryButton
-                    title="Start Analysis"
+                    title={translations.welcome.startButton}
                     onPress={() => navigation.navigate('Permissions')}
                     style={styles.button}
                 />

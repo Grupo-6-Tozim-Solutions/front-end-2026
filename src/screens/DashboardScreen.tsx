@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { typography, spacing, borderRadius } from '../styles/theme';
+import { translations } from '../languages/pt';
 
 interface DashboardScreenProps {
     navigation?: any;
@@ -63,8 +64,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
         {
             id: 'sleep-logging',
             icon: '😴',
-            title: 'Register Sleep',
-            description: 'Log your sleep session',
+            title: translations.dashboard.registerSleep,
+            description: translations.dashboard.registerSleepDesc,
             route: 'SleepLogging',
             color: '#6366F1',
             isPrimary: true,
@@ -72,48 +73,48 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
         {
             id: 'analysis',
             icon: '📊',
-            title: 'Detailed Analysis',
-            description: 'View comprehensive sleep data',
+            title: translations.dashboard.detailedAnalysis,
+            description: translations.dashboard.detailedAnalysisDesc,
             route: 'DetailedAnalysis',
             color: '#8B5CF6',
         },
         {
             id: 'insights',
             icon: '💡',
-            title: 'Insights',
-            description: 'Get personalized recommendations',
+            title: translations.dashboard.insights,
+            description: translations.dashboard.insightsDesc,
             route: 'Insights',
             color: '#EC4899',
         },
         {
             id: 'weekly-report',
             icon: '📈',
-            title: 'Weekly Report',
-            description: 'See your sleep trends',
+            title: translations.dashboard.weeklyReport,
+            description: translations.dashboard.weeklyReportDesc,
             route: 'WeeklyReport',
             color: '#F59E0B',
         },
         {
             id: 'experiments',
             icon: '🧪',
-            title: 'Experiments',
-            description: 'Track sleep experiments',
+            title: translations.dashboard.experiments,
+            description: translations.dashboard.experimentsDesc,
             route: 'Experiments',
             color: '#14B8A6',
         },
         {
             id: 'prediction',
             icon: '🔮',
-            title: 'Sleep Prediction',
-            description: 'Predict your sleep quality',
+            title: translations.dashboard.sleepPrediction,
+            description: translations.dashboard.sleepPredictionDesc,
             route: 'SleepPrediction',
             color: '#06B6D4',
         },
         {
             id: 'profile',
             icon: '👤',
-            title: 'Profile',
-            description: 'Edit your information',
+            title: translations.dashboard.profile,
+            description: translations.dashboard.profileDesc,
             route: 'Profile',
             color: '#64748B',
         },
@@ -140,10 +141,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             <View style={styles.header}>
                 <View>
                     <Text style={[styles.greeting, { color: colors.text }]}>
-                        Welcome Back! 👋
+                        {translations.dashboard.greeting}
                     </Text>
                     <Text style={[styles.date, { color: colors.textSecondary }]}>
-                        {new Date().toLocaleDateString('en-US', {
+                        {new Date().toLocaleDateString('pt-BR', {
                             weekday: 'long',
                             year: 'numeric',
                             month: 'long',
@@ -167,17 +168,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
                     <Text style={styles.statusEmoji}>😴</Text>
                     <View style={styles.statusContent}>
                         <Text style={[styles.statusTitle, { color: colors.text }]}>
-                            Last Night's Sleep
+                            {translations.dashboard.lastNightSleep}
                         </Text>
                         <Text
                             style={[styles.statusValue, { color: colors.primary }]}
                         >
-                            {lastSleepLog.hoursSlept} hours
+                            {lastSleepLog.hoursSlept} {translations.dashboard.hoursSlept}
                         </Text>
                         <Text
                             style={[styles.statusDate, { color: colors.textSecondary }]}
                         >
-                            {new Date(lastSleepLog.date).toLocaleDateString()}
+                            {new Date(lastSleepLog.date).toLocaleDateString('pt-BR')}
                         </Text>
                     </View>
                     {appContext.syncQueue.some(log => log.id === lastSleepLog.id) && (
@@ -207,9 +208,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             >
                 <Text style={styles.primaryMenuEmoji}>😴</Text>
                 <View style={styles.primaryMenuTextContainer}>
-                    <Text style={styles.primaryMenuTitle}>Register Sleep</Text>
+                    <Text style={styles.primaryMenuTitle}>{translations.dashboard.registerSleep}</Text>
                     <Text style={styles.primaryMenuDescription}>
-                        How did you sleep last night?
+                        Como você dormiu na noite passada?
                     </Text>
                 </View>
                 <Text style={styles.primaryMenuArrow}>→</Text>
@@ -268,7 +269,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
                 >
                     <Text style={styles.syncStatusEmoji}>📡</Text>
                     <Text style={[styles.syncStatusText, { color: colors.textSecondary }]}>
-                        {appContext.syncQueue.length} item(s) pending sync
+                        {appContext.syncQueue.length} item(ns) aguardando sincronização
                     </Text>
                 </View>
             )}
@@ -373,14 +374,16 @@ const styles = StyleSheet.create({
     menuGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: spacing.md,
         marginBottom: spacing.lg,
+        marginHorizontal: -spacing.sm,
     },
     menuCard: {
         borderRadius: borderRadius.md,
         borderWidth: 1,
         padding: spacing.md,
-        width: '48%',
+        width: '50%',
+        paddingHorizontal: spacing.sm,
+        marginVertical: spacing.sm,
         alignItems: 'center',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,

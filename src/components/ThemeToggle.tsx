@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import { translations } from '../languages/pt';
 
 export const ThemeToggle: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
@@ -10,7 +11,7 @@ export const ThemeToggle: React.FC = () => {
       style={styles.button}
       onPress={toggleTheme}
       activeOpacity={0.7}
-      accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      accessibilityLabel={isDark ? translations.welcome.switchToLight : translations.welcome.switchToDark}
     >
       <Text style={styles.icon}>{isDark ? '☀️' : '🌙'}</Text>
     </TouchableOpacity>

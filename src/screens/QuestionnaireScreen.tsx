@@ -22,6 +22,7 @@ import { deviceDataService } from '../services/deviceData';
 import { permissionsService } from '../services/permissions';
 import { typography, spacing, borderRadius } from '../styles/theme';
 import { UserProfile } from '../types/user';
+import { translations } from '../languages/pt';
 
 const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
 
@@ -73,11 +74,11 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 if (screenTimeData !== null) {
                     // screenTimeData in minutes, convert to hours
                     const hours = Math.round(screenTimeData / 60);
-                    setScreenTimeSuggestion(`${hours} hours (from device)`);
+                    setScreenTimeSuggestion(`${hours} ${translations.questionnaire.deviceScreenTime}`);
                     setScreenTime(hours.toString());
                 } else {
                     // Fallback: default suggestion
-                    setScreenTimeSuggestion('–– Unable to read from device, please enter manually');
+                    setScreenTimeSuggestion(translations.questionnaire.unableToReadDevice);
                     setScreenTime('');
                 }
 
@@ -86,7 +87,7 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 console.log('[Questionnaire] Device info:', deviceInfo);
             } catch (error) {
                 console.error('[Questionnaire] Error loading device data:', error);
-                setScreenTimeSuggestion('–– Unable to read device data');
+                setScreenTimeSuggestion(translations.questionnaire.unableToReadDevice);
             } finally {
                 setIsLoadingDeviceData(false);
             }
@@ -107,25 +108,25 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
 
     const validate = (): boolean => {
         if (!age.trim()) {
-            Alert.alert('Validation', 'Please enter your age.');
+            Alert.alert(translations.common.validation, translations.questionnaire.validationAge);
             return false;
         }
         const ageNum = parseInt(age, 10);
         if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
-            Alert.alert('Validation', 'Please enter a valid age (1–120).');
+            Alert.alert(translations.common.validation, translations.questionnaire.validationAgeRange);
             return false;
         }
         if (!gender) {
-            Alert.alert('Validation', 'Please select your gender.');
+            Alert.alert(translations.common.validation, translations.questionnaire.validationGender);
             return false;
         }
         if (!screenTime.trim()) {
-            Alert.alert('Validation', 'Please enter your daily screen time.');
+            Alert.alert(translations.common.validation, translations.questionnaire.validationScreenTime);
             return false;
         }
         const screenTimeNum = parseFloat(screenTime);
         if (isNaN(screenTimeNum) || screenTimeNum < 0 || screenTimeNum > 24) {
-            Alert.alert('Validation', 'Please enter a valid screen time (0–24 hours).');
+            Alert.alert(translations.common.validation, translations.questionnaire.validationScreenTimeRange);
             return false;
         }
         return true;
@@ -158,11 +159,11 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
             console.log(JSON.stringify(userData, null, 2));
 
             Alert.alert(
-                'Profile Created ✅',
-                'Your profile has been saved. Let\'s get started with tracking your sleep!',
+                translations.questionnaire.success,
+                translations.questionnaire.successMessage,
                 [
                     {
-                        text: 'Continue',
+                        text: translations.common.continue,
                         onPress: () => {
                             // Navigation será automática via AppNavigator quando isOnboarded = true
                             // Mas se houver navegação explícita, pode descomente:
@@ -174,9 +175,9 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
         } catch (error) {
             console.error('[Questionnaire] Error submitting:', error);
             Alert.alert(
-                'Error',
-                'Failed to save your profile. Please try again.',
-                [{ text: 'OK' }]
+                translations.common.error,
+                translations.questionnaire.errorMessage,
+                [{ text: translations.common.ok }]
             );
         } finally {
             setIsSubmitting(false);
@@ -208,7 +209,7 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
             console.log('[Questionnaire] Skipped for testing - Default data saved');
         } catch (error) {
             console.error('[Questionnaire] Error skipping:', error);
-            Alert.alert('Error', 'Failed to skip setup. Please try again.');
+            Alert.alert(translations.common.error, translations.questionnaire.errorMessage);
         } finally {
             setIsSubmitting(false);
         }
@@ -224,10 +225,10 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
             <View style={styles.header}>
                 <Text style={styles.headerEmoji}>📋</Text>
                 <Text style={[styles.title, { color: colors.text }]}>
-                    Your Digital Profile
+                    Seu Perfil Digital
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    Tell us about your daily habits so we can provide personalized insights.
+                    Conte-nos sobre seus hábitos diários para que possamos fornecer insights personalizados.
                 </Text>
             </View>
 
@@ -246,20 +247,20 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>👤</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Personal Information
+                        Informações Pessoais
                     </Text>
                 </View>
 
                 <FormInput
-                    label="Age"
+                    label={translations.questionnaire.age}
                     value={age}
                     onChange={setAge}
-                    placeholder="e.g., 25"
+                    placeholder="ex: 25"
                     keyboardType="numeric"
                 />
 
                 <View style={styles.fieldContainer}>
-                    <Text style={[styles.fieldLabel, { color: colors.text }]}>Gender</Text>
+                    <Text style={[styles.fieldLabel, { color: colors.text }]}>{translations.questionnaire.gender}</Text>
                     <View
                         style={[
                             styles.pickerWrapper,
@@ -275,13 +276,14 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                             style={[styles.picker, { color: colors.text }]}
                         >
                             <Picker.Item
-                                label="Select gender..."
+                                label="Selecione o gênero..."
                                 value=""
                                 color={colors.textLight}
                             />
-                            {genderOptions.map((option) => (
-                                <Picker.Item key={option} label={option} value={option} />
-                            ))}
+                            <Picker.Item label={translations.questionnaire.male} value="Male" />
+                            <Picker.Item label={translations.questionnaire.female} value="Female" />
+                            <Picker.Item label={translations.questionnaire.other} value="Other" />
+                            <Picker.Item label={translations.questionnaire.preferNotToSay} value="Prefer not to say" />
                         </Picker>
                     </View>
                 </View>
@@ -301,7 +303,7 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>📱</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Screen Usage
+                        Tempo de Tela
                     </Text>
                     {isLoadingDeviceData && <ActivityIndicator size="small" color={colors.primary} />}
                 </View>
@@ -310,7 +312,7 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                     <View style={styles.loaderContainer}>
                         <ActivityIndicator size="large" color={colors.primary} />
                         <Text style={[styles.loaderText, { color: colors.textSecondary }]}>
-                            Reading device data...
+                            {translations.questionnaire.loadingDeviceData}
                         </Text>
                     </View>
                 ) : (
@@ -321,10 +323,10 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                             </Text>
                         )}
                         <FormInput
-                            label="Average daily screen time (hours)"
+                            label={translations.questionnaire.screenTime}
                             value={screenTime}
                             onChange={setScreenTime}
-                            placeholder="e.g., 5"
+                            placeholder="ex: 5"
                             keyboardType="decimal-pad"
                         />
                     </>
@@ -345,14 +347,14 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>😴</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Sleep Schedule
+                        Cronograma de Sono
                     </Text>
                 </View>
 
                 {/* Bed Time */}
                 <View style={styles.fieldContainer}>
                     <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        Average bedtime
+                        Hora média de dormir
                     </Text>
                     <TouchableOpacity
                         style={[
@@ -382,7 +384,7 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 {/* Wake Time */}
                 <View style={styles.fieldContainer}>
                     <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        Average wake time
+                        Hora média de acordar
                     </Text>
                     <TouchableOpacity
                         style={[
@@ -410,13 +412,13 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 </View>
 
                 <SliderInput
-                    label="Perceived sleep quality"
+                    label="Qualidade de sono percebida"
                     value={sleepQuality}
                     min={1}
                     max={10}
                     onChange={(v) => setSleepQuality(Math.round(v))}
-                    minLabel="1 = Very Poor"
-                    maxLabel="10 = Excellent"
+                    minLabel={translations.questionnaire.veryPoor}
+                    maxLabel={translations.questionnaire.excellent}
                 />
             </View>
 
@@ -434,18 +436,18 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionEmoji}>🧠</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Stress Level
+                        Nível de Estresse
                     </Text>
                 </View>
 
                 <SliderInput
-                    label="Perceived stress level"
+                    label="Nível de estresse percebido"
                     value={stressLevel}
                     min={1}
                     max={10}
                     onChange={(v) => setStressLevel(Math.round(v))}
-                    minLabel="1 = Very Low"
-                    maxLabel="10 = Very High"
+                    minLabel={translations.questionnaire.lowStress}
+                    maxLabel={translations.questionnaire.highStress}
                 />
             </View>
 
@@ -455,13 +457,13 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                     <View style={styles.submittingContainer}>
                         <ActivityIndicator size="large" color={colors.primary} />
                         <Text style={[styles.submittingText, { color: colors.textSecondary }]}>
-                            Saving your profile...
+                            {translations.questionnaire.submitting}
                         </Text>
                     </View>
                 ) : (
                     <>
                         <PrimaryButton
-                            title="Generate My Analysis"
+                            title={translations.questionnaire.submitButton}
                             onPress={handleSubmit}
                             style={styles.submitButton}
                             disabled={isLoadingDeviceData || isSubmitting}
@@ -472,11 +474,11 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                             style={styles.skipButton}
                         >
                             <Text style={[styles.skipButtonText, { color: colors.textSecondary }]}>
-                                Skip for testing
+                                {translations.questionnaire.skipButton}
                             </Text>
                         </TouchableOpacity>
                         <Text style={[styles.disclaimer, { color: colors.textLight }]}>
-                            Your data is stored locally and synced securely when connected.
+                            Seus dados são armazenados localmente e sincronizados com segurança quando conectado.
                         </Text>
                     </>
                 )}
