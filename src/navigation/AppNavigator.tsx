@@ -12,12 +12,12 @@ import { PermissionsScreen } from '../screens/PermissionsScreen';
 import { QuestionnaireScreen } from '../screens/QuestionnaireScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { SleepLoggingScreen } from '../screens/SleepLoggingScreen';
+import { SleepQualityScreen } from '../screens/SleepQualityScreen';
+import { SleepCoachScreen } from '../screens/SleepCoachScreen';
 import {
     DetailedAnalysisScreen,
     InsightsScreen,
     WeeklyReportScreen,
-    ExperimentsScreen,
-    SleepPredictionScreen,
     ProfileScreen,
 } from '../screens/StubScreens';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -32,11 +32,11 @@ export type RootStackParamList = {
     // Main
     Dashboard: undefined;
     SleepLogging: undefined;
+    SleepQuality: undefined;
+    SleepCoach: undefined;
     DetailedAnalysis: undefined;
     Insights: undefined;
     WeeklyReport: undefined;
-    Experiments: undefined;
-    SleepPrediction: undefined;
     Profile: undefined;
 };
 
@@ -125,6 +125,22 @@ const MainStack: React.FC = () => {
                 }}
             />
             <Stack.Screen
+                name="SleepQuality"
+                component={SleepQualityScreen}
+                options={{
+                    title: 'Qualidade do Sono',
+                    headerBackTitle: 'Dashboard',
+                }}
+            />
+            <Stack.Screen
+                name="SleepCoach"
+                component={SleepCoachScreen}
+                options={{
+                    title: 'Coach do Sono',
+                    headerBackTitle: 'Dashboard',
+                }}
+            />
+            <Stack.Screen
                 name="DetailedAnalysis"
                 component={DetailedAnalysisScreen}
                 options={{
@@ -145,22 +161,6 @@ const MainStack: React.FC = () => {
                 component={WeeklyReportScreen}
                 options={{
                     title: 'Weekly Report',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="Experiments"
-                component={ExperimentsScreen}
-                options={{
-                    title: 'Experiments',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="SleepPrediction"
-                component={SleepPredictionScreen}
-                options={{
-                    title: 'Sleep Prediction',
                     headerBackTitle: 'Dashboard',
                 }}
             />

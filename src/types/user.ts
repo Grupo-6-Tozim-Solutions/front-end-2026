@@ -27,6 +27,17 @@ export interface SleepLog {
   syncStatus?: 'pending' | 'synced' | 'failed'; // status offline-first
 }
 
+export interface SleepQualityMetrics {
+  averageQuality: number; // 0-10 average of selected period
+  totalLogsInPeriod: number; // number of sleep logs
+  trend: 'improving' | 'declining' | 'stable'; // trend direction
+  currentStreak: number; // consecutive days with quality >= threshold
+  globalAverage: number; // global benchmark (default 7.2)
+  percentile: number; // where user ranks vs global (0-100)
+  qualityCategory: 'poor' | 'fair' | 'good' | 'excellent'; // quality classification
+  lastUpdated: string; // ISO timestamp
+}
+
 export interface AppContextType {
   // State
   isOnboarded: boolean;
@@ -34,6 +45,7 @@ export interface AppContextType {
   sleepLogs: SleepLog[];
   isLoading: boolean;
   syncQueue: SleepLog[]; // fila de logs pendentes de envio
+  globalQualityAverage: number; // global benchmark (e.g., 7.2)
   
   // Actions
   setOnboarded: (value: boolean) => Promise<void>;
@@ -43,6 +55,8 @@ export interface AppContextType {
   deleteSleepLog: (id: string) => Promise<void>;
   syncWithBackend: () => Promise<void>;
   loadUserData: () => Promise<void>;
+  loadGlobalMetrics: () => Promise<void>;
+  userQualityStats: () => SleepQualityMetrics;
   clearAllData: () => Promise<void>;
 }
 

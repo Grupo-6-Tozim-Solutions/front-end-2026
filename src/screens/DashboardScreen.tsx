@@ -13,6 +13,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { typography, spacing, borderRadius } from '../styles/theme';
 import { translations } from '../languages/pt';
+import { QualityComparisonChart } from '../components/QualityComparisonChart';
 
 interface DashboardScreenProps {
     navigation?: any;
@@ -71,6 +72,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             isPrimary: true,
         },
         {
+            id: 'sleep-quality',
+            icon: '⭐',
+            title: translations.dashboard.sleepQuality,
+            description: translations.dashboard.sleepQualityDesc,
+            route: 'SleepQuality',
+            color: '#F59E0B',
+        },
+        {
             id: 'analysis',
             icon: '📊',
             title: translations.dashboard.detailedAnalysis,
@@ -87,28 +96,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             color: '#EC4899',
         },
         {
+            id: 'sleep-coach',
+            icon: '🤖',
+            title: translations.dashboard.sleepCoach,
+            description: translations.dashboard.sleepCoachDesc,
+            route: 'SleepCoach',
+            color: '#06B6D4',
+        },
+        {
             id: 'weekly-report',
             icon: '📈',
             title: translations.dashboard.weeklyReport,
             description: translations.dashboard.weeklyReportDesc,
             route: 'WeeklyReport',
             color: '#F59E0B',
-        },
-        {
-            id: 'experiments',
-            icon: '🧪',
-            title: translations.dashboard.experiments,
-            description: translations.dashboard.experimentsDesc,
-            route: 'Experiments',
-            color: '#14B8A6',
-        },
-        {
-            id: 'prediction',
-            icon: '🔮',
-            title: translations.dashboard.sleepPrediction,
-            description: translations.dashboard.sleepPredictionDesc,
-            route: 'SleepPrediction',
-            color: '#06B6D4',
         },
         {
             id: 'profile',
@@ -153,6 +154,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
                     </Text>
                 </View>
             </View>
+
+            {/* Chart: Quality Comparison */}
+            <QualityComparisonChart
+                sleepLogs={appContext.sleepLogs}
+                globalAverage={appContext.globalQualityAverage}
+                userColor={colors.primary}
+                globalColor="#94A3B8"
+                backgroundColor={colors.surfaceElevated}
+                textColor={colors.text}
+            />
 
             {/* Last Sleep Log Card */}
             {lastSleepLog && (

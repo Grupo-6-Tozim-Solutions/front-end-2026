@@ -181,3 +181,29 @@ export const submitQuestionnaire = async (
         };
     }
 };
+
+/**
+ * Gets global sleep quality average (benchmark)
+ * Returns default 7.2 if backend unavailable (offline fallback)
+ */
+export const getGlobalSleepQualityAverage = async (): Promise<number> => {
+    try {
+        const response = await fetchWithTimeout(`${BASE_URL}/api/sleep-quality/global-average`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            console.warn(`[API] Failed to fetch global average: ${response.status}`);
+            return 7.2; // Fallback to default
+        }
+
+        const result = await response.json();
+        return result.average || 7.2;
+    } catch (error) {
+        console.error('[API] Get Global Sleep Quality Average Error:', error);
+        return 7.2; // Offline fallback
+    }
+};

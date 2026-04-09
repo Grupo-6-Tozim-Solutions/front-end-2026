@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserProfile, SleepLog, AppContextType } from '../types/user';
-import { submitOnboarding, submitSleepLog, getSyncQueue } from '../services/api';
+import { UserProfile, SleepLog, AppContextType, SleepQualityMetrics } from '../types/user';
+import { submitOnboarding, submitSleepLog, getSyncQueue, getGlobalSleepQualityAverage } from '../services/api';
+import { calculateSleepQualityMetrics } from '../utils/sleepQualityCalculations';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -10,6 +11,7 @@ const STORAGE_KEYS = {
   SLEEP_LOGS: '@app_sleep_logs',
   IS_ONBOARDED: '@app_is_onboarded',
   SYNC_QUEUE: '@app_sync_queue',
+  GLOBAL_QUALITY_AVG: '@app_global_quality_avg',
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -18,10 +20,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
   const [syncQueue, setSyncQueue] = useState<SleepLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [globalQualityAverage, setGlobalQualityAverage] = useState(7.2);
 
   // ===== Load Data on App Start =====
   useEffect(() => {
     loadUserData();
+    loadGlobalMetrics();
   }, []);
 
   // ===== Auto-sync pending items every 30 seconds =====
@@ -38,11 +42,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadUserData = async () => {
     try {
       setIsLoading(true);
-      const [onboardedStr, userData, sleepLogsStr, queueStr] = await Promise.all([
+      const [onboardedStr, userData, sleepLogsStr, queueStr, globalAvgStr] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.IS_ONBOARDED),
         AsyncStorage.getItem(STORAGE_KEYS.USER_DATA),
         AsyncStorage.getItem(STORAGE_KEYS.SLEEP_LOGS),
         AsyncStorage.getItem(STORAGE_KEYS.SYNC_QUEUE),
+        AsyncStorage.getItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG),
       ]);
 
       if (onboardedStr === 'true') {
@@ -60,11 +65,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (queueStr) {
         setSyncQueue(JSON.parse(queueStr));
       }
+
+      if (globalAvgStr) {
+        setGlobalQualityAverage(JSON.parse(globalAvgStr));
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // ===== Load global quality metrics =====
+  const loadGlobalMetrics = async () => {
+    try {
+      const average = await getGlobalSleepQualityAverage();
+      setGlobalQualityAverage(average);
+      await AsyncStorage.setItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG, JSON.stringify(average));
+    } catch (error) {
+      console.error('Error loading global metrics:', error);
+    }
+  };
+
+  // ===== Get calculated sleep quality metrics =====
+  const userQualityStats = (): SleepQualityMetrics => {
+    return calculateSleepQualityMetrics(sleepLogs, globalQualityAverage, 7);
   };
 
   // ===== Save onboarding status =====
@@ -202,6 +227,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA),
         AsyncStorage.removeItem(STORAGE_KEYS.SLEEP_LOGS),
         AsyncStorage.removeItem(STORAGE_KEYS.SYNC_QUEUE),
+        AsyncStorage.removeItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG),
       ]);
     } catch (error) {
       console.error('Error clearing data:', error);
@@ -216,6 +242,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         sleepLogs,
         isLoading,
         syncQueue,
+        globalQualityAverage,
         setOnboarded,
         updateUserData,
         addSleepLog,
@@ -223,6 +250,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         deleteSleepLog,
         syncWithBackend,
         loadUserData,
+        loadGlobalMetrics,
+        userQualityStats,
         clearAllData,
       }}
     >
