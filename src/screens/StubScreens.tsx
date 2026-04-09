@@ -40,11 +40,3 @@ export const SleepPredictionScreen: React.FC = () => (
         description="AI-powered sleep quality forecasting"
     />
 );
-
-export const ProfileScreen: React.FC = () => (
-    <StubScreenTemplate
-        icon="👤"
-        title="Profile"
-        description="Edit your personal information and preferences"
-    />
-);

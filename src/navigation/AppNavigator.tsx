@@ -14,11 +14,11 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { SleepLoggingScreen } from '../screens/SleepLoggingScreen';
 import { SleepQualityScreen } from '../screens/SleepQualityScreen';
 import { SleepCoachScreen } from '../screens/SleepCoachScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import {
     DetailedAnalysisScreen,
     InsightsScreen,
     WeeklyReportScreen,
-    ProfileScreen,
 } from '../screens/StubScreens';
 import { ThemeToggle } from '../components/ThemeToggle';
 
