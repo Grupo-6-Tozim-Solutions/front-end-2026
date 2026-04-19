@@ -19,7 +19,7 @@ import { SliderInput } from '../components/SliderInput';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { deviceDataService } from '../services/deviceData';
-import { permissionsService } from '../services/permissions';
+import { getCoordsFromCEP, getCurrentLocation } from '../services/geolocation';
 import { typography, spacing, borderRadius } from '../styles/theme';
 import { UserProfile } from '../types/user';
 import { translations } from '../languages/pt';
@@ -45,6 +45,13 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
     const [gender, setGender] = useState<string>('');
     const [screenTime, setScreenTime] = useState<string>('');
     const [screenTimesuggestion, setScreenTimeSuggestion] = useState<string>('');
+    const [homeZipCode, setHomeZipCode] = useState<string>('');
+    const [homeAddress, setHomeAddress] = useState<string>('');
+    const [homeStreet, setHomeStreet] = useState<string | undefined>(undefined);
+    const [homeCity, setHomeCity] = useState<string | undefined>(undefined);
+    const [homeState, setHomeState] = useState<string | undefined>(undefined);
+    const [homeLatitude, setHomeLatitude] = useState<number | undefined>(undefined);
+    const [homeLongitude, setHomeLongitude] = useState<number | undefined>(undefined);
     const [bedTime, setBedTime] = useState<Date>(new Date(2000, 0, 1, 23, 0));
     const [wakeTime, setWakeTime] = useState<Date>(new Date(2000, 0, 1, 7, 0));
     const [sleepQuality, setSleepQuality] = useState<number>(5);
@@ -56,7 +63,81 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
     
     // Loading state
     const [isLoadingDeviceData, setIsLoadingDeviceData] = useState(true);
+    const [isLoadingCoordinates, setIsLoadingCoordinates] = useState(false);
+    const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Handle CEP lookup and coordinate resolution
+    const handleZipCodeChange = async (value: string) => {
+        setHomeZipCode(value);
+        
+        // Only lookup when we have a complete CEP (8 digits with or without hyphen)
+        const cleanValue = value.replace('-', '');
+        if (cleanValue.length === 8 && /^\d{8}$/.test(cleanValue)) {
+            try {
+                setIsLoadingCoordinates(true);
+                const coords = await getCoordsFromCEP(value);
+                
+                if (coords) {
+                    setHomeLatitude(coords.latitude);
+                    setHomeLongitude(coords.longitude);
+                    setHomeStreet(coords.street);
+                    setHomeCity(coords.city);
+                    setHomeState(coords.state);
+                    setHomeAddress(`${coords.street || ''}, ${coords.city || ''}, ${coords.state || ''}`);
+                    console.log('[Questionnaire] CEP resolved to coordinates:', coords);
+                } else {
+                    Alert.alert(
+                        translations.questionnaire.validationZipCode,
+                        translations.questionnaire.coordinatesNotFound
+                    );
+                    setHomeLatitude(undefined);
+                    setHomeLongitude(undefined);
+                    setHomeStreet(undefined);
+                    setHomeCity(undefined);
+                    setHomeState(undefined);
+                    setHomeAddress('');
+                }
+            } catch (error) {
+                console.error('[Questionnaire] Error resolving CEP:', error);
+                Alert.alert(translations.common.error, translations.questionnaire.coordinatesNotFound);
+            } finally {
+                setIsLoadingCoordinates(false);
+            }
+        }
+    };
+
+    // Handle getting current location
+    const handleGetCurrentLocation = async () => {
+        try {
+            setIsGettingCurrentLocation(true);
+            console.log('[Questionnaire] Starting location request...');
+            
+            const location = await getCurrentLocation();
+            
+            if (location) {
+                setHomeLatitude(location.latitude);
+                setHomeLongitude(location.longitude);
+                setHomeStreet(location.street);
+                setHomeCity(location.city);
+                setHomeState(location.state);
+                setHomeAddress(`${location.street || ''}, ${location.city || ''}, ${location.state || ''}`);
+                setHomeZipCode(''); // Clear CEP when using current location
+                
+                console.log('[Questionnaire] Current location set:', location);
+            } else {
+                Alert.alert(
+                    translations.questionnaire.locationPermissionRequired,
+                    translations.questionnaire.locationError
+                );
+            }
+        } catch (error) {
+            console.error('[Questionnaire] Error getting location:', error);
+            Alert.alert(translations.common.error, translations.questionnaire.locationError);
+        } finally {
+            setIsGettingCurrentLocation(false);
+        }
+    };
 
     // ===== Load device data on mount =====
     useEffect(() => {
@@ -64,30 +145,15 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
             try {
                 setIsLoadingDeviceData(true);
 
-                // Request permissions first
-                console.log('[Questionnaire] Requesting permissions...');
-                await permissionsService.requestAllPermissions();
+                // Screen time é entrada manual (Expo-compatível)
+                console.log('[Questionnaire] Screen time input is manual');
+                setScreenTimeSuggestion('');
+                setScreenTime('');
 
-                // Try to get screen time
-                console.log('[Questionnaire] Fetching screen time data...');
-                const screenTimeData = await deviceDataService.getScreenTimeData();
-                if (screenTimeData !== null) {
-                    // screenTimeData in minutes, convert to hours
-                    const hours = Math.round(screenTimeData / 60);
-                    setScreenTimeSuggestion(`${hours} ${translations.questionnaire.deviceScreenTime}`);
-                    setScreenTime(hours.toString());
-                } else {
-                    // Fallback: default suggestion
-                    setScreenTimeSuggestion(translations.questionnaire.unableToReadDevice);
-                    setScreenTime('');
-                }
-
-                // Get device info for logging
                 const deviceInfo = await deviceDataService.getDeviceInfo();
                 console.log('[Questionnaire] Device info:', deviceInfo);
             } catch (error) {
                 console.error('[Questionnaire] Error loading device data:', error);
-                setScreenTimeSuggestion(translations.questionnaire.unableToReadDevice);
             } finally {
                 setIsLoadingDeviceData(false);
             }
@@ -129,6 +195,14 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
             Alert.alert(translations.common.validation, translations.questionnaire.validationScreenTimeRange);
             return false;
         }
+        if (!homeAddress.trim()) {
+            Alert.alert(translations.common.validation, translations.questionnaire.validationZipCode);
+            return false;
+        }
+        if (homeLatitude === undefined || homeLongitude === undefined) {
+            Alert.alert(translations.common.validation, translations.questionnaire.coordinatesNotFound);
+            return false;
+        }
         return true;
     };
 
@@ -142,6 +216,10 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 age,
                 gender,
                 screenTimePerDay: screenTime,
+                homeZipCode,
+                homeAddress,
+                homeLatitude,
+                homeLongitude,
                 bedTime: formatTime(bedTime),
                 wakeTime: formatTime(wakeTime),
                 sleepQuality: sleepQuality.toString(),
@@ -287,6 +365,78 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                         </Picker>
                     </View>
                 </View>
+            </View>
+
+            <View
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.cardBorder,
+                        shadowColor: colors.shadow,
+                    },
+                ]}
+            >
+                {/* Section: Location */}
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionEmoji}>📍</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                        Localização da Residência
+                    </Text>
+                    {(isLoadingCoordinates || isGettingCurrentLocation) && <ActivityIndicator size="small" color={colors.primary} />}
+                </View>
+
+                <FormInput
+                    label={translations.questionnaire.homeZipCode}
+                    value={homeZipCode}
+                    onChange={handleZipCodeChange}
+                    placeholder={translations.questionnaire.homeZipCodePlaceholder}
+                    keyboardType="numeric"
+                />
+                
+                <TouchableOpacity
+                    style={[
+                        styles.locationButton,
+                        {
+                            backgroundColor: colors.primary,
+                            opacity: isGettingCurrentLocation ? 0.6 : 1,
+                        },
+                    ]}
+                    onPress={handleGetCurrentLocation}
+                    disabled={isGettingCurrentLocation}
+                >
+                    {isGettingCurrentLocation ? (
+                        <>
+                            <ActivityIndicator size="small" color={colors.surface} style={{ marginRight: spacing.sm }} />
+                            <Text style={[styles.locationButtonText, { color: colors.surface }]}>
+                                {translations.questionnaire.gettingLocation}
+                            </Text>
+                        </>
+                    ) : (
+                        <Text style={[styles.locationButtonText, { color: colors.surface }]}>
+                            📍 {translations.questionnaire.getMyLocation}
+                        </Text>
+                    )}
+                </TouchableOpacity>
+                
+                {homeAddress && (homeLatitude !== undefined && homeLongitude !== undefined) && (
+                    <View style={[styles.successMessage, { backgroundColor: colors.success }]}>
+                        <Text style={[styles.successMessageText, { color: colors.text, fontWeight: 'bold' }]}>
+                            ✅ Endereço confirmado
+                        </Text>
+                        <Text style={[styles.addressText, { color: colors.text }]}>
+                            {homeStreet && <Text>{homeStreet}</Text>}
+                            {homeCity && homeStreet && <Text>\n</Text>}
+                            {homeCity && <Text>{homeCity}</Text>}
+                            {homeState && homeCity && <Text>, </Text>}
+                            {homeState && <Text>{homeState}</Text>}
+                        </Text>
+                    </View>
+                )}
+                
+                <Text style={[styles.hint, { color: colors.textSecondary }]}>
+                    {translations.questionnaire.homeZipCodeHint}
+                </Text>
             </View>
 
             <View
@@ -615,5 +765,37 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
         paddingHorizontal: spacing.sm,
         fontWeight: '500',
+    },
+    successMessage: {
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        marginVertical: spacing.sm,
+        alignItems: 'center',
+    },
+    successMessageText: {
+        fontSize: typography.caption,
+        fontWeight: '500',
+    },
+    hint: {
+        fontSize: typography.caption,
+        marginTop: spacing.sm,
+        fontStyle: 'italic',
+    },
+    locationButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: borderRadius.md,
+        paddingVertical: spacing.md,
+        marginVertical: spacing.md,
+    },
+    locationButtonText: {
+        fontSize: typography.body,
+        fontWeight: '600',
+    },
+    addressText: {
+        fontSize: typography.caption,
+        marginTop: spacing.sm,
+        lineHeight: 18,
     },
 });

@@ -23,22 +23,20 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
     const { colors } = useTheme();
     const [isRequesting, setIsRequesting] = useState(false);
     const [permissionsStatus, setPermissionsStatus] = useState<PermissionStatus>({
-        screenTime: 'unknown',
-        sensors: 'unknown',
+        notifications: 'unknown',
     });
 
     const handleRequestPermissions = async () => {
         try {
             setIsRequesting(true);
 
-            console.log('[PermissionsScreen] Requesting permissions...');
+            console.log('[PermissionsScreen] Requesting notifications permission...');
             const status = await permissionsService.requestAllPermissions();
             setPermissionsStatus(status);
 
             console.log('[PermissionsScreen] Permissions status:', status);
 
-            if (Platform.OS === 'android' &&
-                (status.screenTime === 'granted' || status.sensors === 'granted')) {
+            if (status.notifications === 'granted') {
                 Alert.alert(
                     translations.permissions.granted,
                     translations.permissions.grantedMessage,
@@ -50,10 +48,10 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
                     ]
                 );
             } else {
-                // Permissões não foram todas granted, mas continuar mesmo assim
+                // Notificações foram recusadas, mas continuar mesmo assim
                 Alert.alert(
-                    translations.permissions.title,
-                    translations.permissions.deniedMessage,
+                    translations.permissions.optionalPermissions,
+                    translations.permissions.notificationsOptional,
                     [
                         {
                             text: translations.common.continue,
@@ -119,13 +117,13 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
         >
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerEmoji}>🔐</Text>
+                <Text style={styles.headerEmoji}>�</Text>
                 <Text style={[styles.title, { color: colors.text }]}>
-                    Ativar Permissões
+                    Lembretes & Notificações
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    Para fornecer análise personalizada de sono, precisamos acessar algumas informações do dispositivo.
-                    Seus dados ficam no seu dispositivo e nunca são compartilhados.
+                    Ative notificações para receber lembretes personalizados sobre seus hábitos de sono.
+                    Você pode continuar usando o app sem ativar, mas os lembretes não funcionarão.
                 </Text>
             </View>
 
@@ -141,28 +139,16 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
                 ]}
             >
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>📊</Text>
+                    <Text style={styles.sectionEmoji}>⚙️</Text>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Permissões Requeridas
+                        Recursos Opcionais
                     </Text>
                 </View>
 
                 {permissionItem(
-                    '📱',
-                    'Uso do Dispositivo',
-                    'Ler seu tempo de uso diário de aplicativos para correlacionar com padrões de sono'
-                )}
-
-                {permissionItem(
-                    '📍',
-                    'Sensores de Movimento',
-                    'Detectar padrões de movimento para melhor entender seu sono'
-                )}
-
-                {permissionItem(
-                    '🔋',
-                    'Bateria & Informações do Dispositivo',
-                    'Monitorar status de carregamento do dispositivo e informações do sistema'
+                    '🔔',
+                    'Notificações e Lembretes',
+                    'Receba lembretes para dormir no horário ideal e acompanhar seus objetivos de sono'
                 )}
             </View>
 
@@ -190,7 +176,7 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
             {/* Buttons */}
             <View style={styles.buttonContainer}>
                 <PrimaryButton
-                    title={isRequesting ? 'Requerendo...' : 'Ativar Permissões'}
+                    title={isRequesting ? 'Requerendo...' : 'Ativar Notificações'}
                     onPress={handleRequestPermissions}
                     disabled={isRequesting}
                     style={styles.primaryButton}

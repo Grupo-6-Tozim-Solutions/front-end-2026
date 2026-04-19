@@ -11,6 +11,10 @@ export interface UserProfile {
   wakeTime: string; // HH:MM
   sleepQuality: string; // 1-10 scale or "low" | "medium" | "high"
   stressLevel: string; // 1-10 scale or "low" | "medium" | "high"
+  homeZipCode?: string; // CEP da residência (ex: 12345678)
+  homeAddress?: string; // Endereço legível (ex: "Rua X, 123, São Paulo, SP")
+  homeLatitude?: number; // Latitude da residência (internal)
+  homeLongitude?: number; // Longitude da residência (internal)
   createdAt?: string;
   updatedAt?: string;
 }
@@ -69,7 +73,5 @@ export interface DeviceData {
 }
 
 export interface PermissionStatus {
-  screenTime: 'granted' | 'denied' | 'unknown';
-  sensors: 'granted' | 'denied' | 'unknown';
-  healthData?: 'granted' | 'denied' | 'unknown';
+  notifications: 'granted' | 'denied' | 'unknown';
 }

@@ -3,27 +3,18 @@ import { DeviceData } from '../types/user';
 
 /**
  * Service para acessar dados do dispositivo
- * - Screen time (tempo de uso do dispositivo)
- * - Battery stats
- * - Device info
- * - Sensores (acelerómetro para detectar movimento)
+ * - Device info (modelo, versão OS)
+ * 
+ * Nota: Tempo de tela é entrada manual do usuário (mais simples, Expo-compatível)
  */
 
 export const deviceDataService = {
   /**
-   * Obtém tempo de tela (screen time) do dispositivo
-   * Nota: Screen time não está disponível via Expo
-   * Retorna null como fallback para input manual
+   * Tempo de tela é entrada manual do usuário
+   * Removido: react-native-app-usage-stats (incompatibilidades)
    */
-  async getScreenTimeData(): Promise<number | null> {
-    try {
-      // Screen time data not available via Expo APIs
-      // Deve ser obtido do usuário manualmente na UI
-      return null;
-    } catch (error) {
-      console.error('[DeviceData] Error getting screen time:', error);
-      return null;
-    }
+  async getScreenTimeData(): Promise<null> {
+    return null;
   },
 
   /**
@@ -37,8 +28,6 @@ export const deviceDataService = {
       return {
         deviceModel: model,
         osVersion: osVersion,
-        batteryLevel: undefined,
-        isCharging: undefined,
       };
     } catch (error) {
       console.error('[DeviceData] Error getting device info:', error);
@@ -47,47 +36,23 @@ export const deviceDataService = {
   },
 
   /**
-   * Obtém nível de bateria
+   * Obtém nível de bateria (não disponível em Expo)
    */
-  async getBatteryLevel(): Promise<number | null> {
-    try {
-      // Battery level not available via Expo without additional modules
-      return null;
-    } catch (error) {
-      console.error('[DeviceData] Error getting battery level:', error);
-      return null;
-    }
+  async getBatteryLevel(): Promise<null> {
+    return null;
   },
 
   /**
-   * Verifica se dispositivo está carregando
+   * Verifica se dispositivo está carregando (não disponível em Expo)
    */
   async isCharging(): Promise<boolean> {
-    try {
-      // Charging status not available via Expo without additional modules
-      return false;
-    } catch (error) {
-      console.error('[DeviceData] Error checking charging status:', error);
-      return false;
-    }
+    return false;
   },
 
   /**
-   * Sugestão: Para dados de sono mais precisos no futuro:
-   * - Integrar com Google Fit API (via @react-native-health/health)
-   * - Usar acelerómetro para detectar movimento
-   * - Integrar com apps de saúde do Android
+   * Dados de sensores (não disponível em Expo)
    */
-  async getSensorData(): Promise<{
-    accelerometer?: { x: number; y: number; z: number };
-  }> {
-    try {
-      // Placeholder para integração futura com sensores
-      // Requer: react-native-sensors ou react-native-device-motion
-      return {};
-    } catch (error) {
-      console.error('[DeviceData] Error getting sensor data:', error);
-      return {};
-    }
+  async getSensorData(): Promise<{}> {
+    return {};
   },
 };

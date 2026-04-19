@@ -36,10 +36,20 @@ const fetchWithTimeout = async (url: string, options: RequestInit): Promise<Resp
 
 /**
  * Submits onboarding data (user profile) to the backend API
+ * TODO: Enable when backend is ready
  */
 export const submitOnboarding = async (
     data: UserProfile
 ): Promise<{ success: boolean; message: string; userId?: string }> => {
+    // API calls disabled for now - backend integration pending
+    return {
+        success: true,
+        message: 'Onboarding saved locally',
+        userId: `user_${Date.now()}`, // Mock ID
+    };
+    
+    // Uncomment below when backend is ready:
+    /*
     try {
         const response = await fetchWithTimeout(`${BASE_URL}/api/onboarding`, {
             method: 'POST',
@@ -63,14 +73,25 @@ export const submitOnboarding = async (
         console.error('[API] Onboarding Error:', error);
         throw error; // Re-throw para o AppContext lidar com retry
     }
+    */
 };
 
 /**
  * Submits sleep log to the backend API
+ * TODO: Enable when backend is ready
  */
 export const submitSleepLog = async (
     log: SleepLog
 ): Promise<{ success: boolean; message: string; logId?: string }> => {
+    // API calls disabled for now - backend integration pending
+    return {
+        success: true,
+        message: 'Sleep log saved locally',
+        logId: log.id,
+    };
+    
+    // Uncomment below when backend is ready:
+    /*
     try {
         const response = await fetchWithTimeout(`${BASE_URL}/api/sleep-logs`, {
             method: 'POST',
@@ -94,15 +115,25 @@ export const submitSleepLog = async (
         console.error('[API] Sleep Log Error:', error);
         throw error; // Re-throw para retry
     }
+    */
 };
 
 /**
  * Updates an existing sleep log
+ * TODO: Enable when backend is ready
  */
 export const updateSleepLog = async (
     logId: string,
     data: Partial<SleepLog>
 ): Promise<{ success: boolean; message: string }> => {
+    // API calls disabled for now - backend integration pending
+    return {
+        success: true,
+        message: 'Sleep log updated locally',
+    };
+    
+    // Uncomment below when backend is ready:
+    /*
     try {
         const response = await fetchWithTimeout(`${BASE_URL}/api/sleep-logs/${logId}`, {
             method: 'PUT',
@@ -125,12 +156,19 @@ export const updateSleepLog = async (
         console.error('[API] Update Sleep Log Error:', error);
         throw error;
     }
+    */
 };
 
 /**
  * Gets sync queue status (what's pending)
+ * TODO: Enable when backend is ready
  */
 export const getSyncQueue = async (): Promise<SleepLog[]> => {
+    // API calls disabled for now - backend integration pending
+    return [];
+    
+    // Uncomment below when backend is ready:
+    /*
     try {
         const response = await fetchWithTimeout(`${BASE_URL}/api/sync-queue`, {
             method: 'GET',
@@ -149,15 +187,25 @@ export const getSyncQueue = async (): Promise<SleepLog[]> => {
         console.error('[API] Get Sync Queue Error:', error);
         return [];
     }
+    */
 };
 
 /**
  * @deprecated Use submitOnboarding() instead
  * Submits questionnaire data to the backend API.
+ * TODO: Enable when backend is ready
  */
 export const submitQuestionnaire = async (
     data: QuestionnaireData
 ): Promise<{ success: boolean; message: string }> => {
+    // API calls disabled for now - backend integration pending
+    return {
+        success: true,
+        message: 'Data saved locally',
+    };
+    
+    // Uncomment below when backend is ready:
+    /*
     try {
         const response = await fetchWithTimeout(`${BASE_URL}/api/questionnaire`, {
             method: 'POST',
@@ -180,13 +228,21 @@ export const submitQuestionnaire = async (
             message: error instanceof Error ? error.message : 'Unknown error occurred',
         };
     }
+    */
 };
 
 /**
  * Gets global sleep quality average (benchmark)
  * Returns default 7.2 if backend unavailable (offline fallback)
+ * TODO: Enable when backend is ready
  */
 export const getGlobalSleepQualityAverage = async (): Promise<number> => {
+    // API calls disabled for now - backend integration pending
+    // Using benchmark fallback value
+    return 7.2;
+    
+    // Uncomment below when backend is ready:
+    /*
     try {
         const response = await fetchWithTimeout(`${BASE_URL}/api/sleep-quality/global-average`, {
             method: 'GET',
@@ -206,4 +262,5 @@ export const getGlobalSleepQualityAverage = async (): Promise<number> => {
         console.error('[API] Get Global Sleep Quality Average Error:', error);
         return 7.2; // Offline fallback
     }
+    */
 };

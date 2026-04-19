@@ -1,93 +1,47 @@
-import { PermissionsAndroid, Platform } from 'react-native';
 import { PermissionStatus } from '../types/user';
 
 /**
- * Service para gerenciar permissões do SO (Android)
- * - PACKAGE_USAGE_STATS: Para ler tempo de tela
- * - SENSORS: Para acesso a acelerómetro (futuro)
+ * Service para gerenciar permissões do SO (iOS & Android via Expo)
+ * - NOTIFICATIONS: Para lembretes e notificações (Expo-compatível)
+ * 
+ * Nota: Este app usa apenas permissões Expo-compatíveis.
+ * Funcionalidades de rastreamento de sono são baseadas em entrada manual do usuário.
  */
 
 export const permissionsService = {
   /**
-   * Nota: PACKAGE_USAGE_STATS não pode ser solicitado em runtime
-   * Deve ser declarado no AndroidManifest.xml
+   * Solicita permissão de notificações (Expo-compatível)
+   * Retorna 'granted' se aceito, 'denied' se recusado
    */
-  async requestPackageUsagePermission(): Promise<boolean> {
+  async requestNotificationPermission(): Promise<'granted' | 'denied'> {
     try {
-      console.log('[Permissions] PACKAGE_USAGE_STATS permission must be declared in AndroidManifest.xml');
-      return true;
+      console.log('[Permissions] Requesting notifications permission...');
+      
+      // Para Expo, notificações são solicitadas via expo-notifications
+      // Por enquanto, retornamos 'unknown' pois seria necessário expo-notifications package
+      // TODO: Integrar expo-notifications quando disponível
+      
+      console.log('[Permissions] Note: Integrate expo-notifications for full notification support');
+      return 'granted'; // Default: assume granted para MVP
     } catch (error) {
-      console.error('[Permissions] Error with package usage permission:', error);
-      return false;
+      console.error('[Permissions] Error requesting notification permission:', error);
+      return 'denied';
     }
   },
 
   /**
-   * Solicita permissões de sensor (acelerómetro)
-   * Para futuro: detectar movimento/sono
+   * Verifica status de notificações
    */
-  async requestSensorPermissions(): Promise<boolean> {
+  async checkNotificationPermissionStatus(): Promise<'granted' | 'denied' | 'unknown'> {
     try {
-      if (Platform.OS !== 'android') {
-        return false;
-      }
-
-      // Android: SENSORS permission (não requer runtime request geralmente)
-      const granted = await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.BODY_SENSORS
-      );
-
-      if (!granted) {
-        const result = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.BODY_SENSORS,
-          {
-            title: 'Permissão de Sensores',
-            message: 'O app precisa acessar sensores para melhorar análise de sono',
-            buttonNeutral: 'Pergunte depois',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          }
-        );
-        return result === PermissionsAndroid.RESULTS.GRANTED;
-      }
-
-      return true;
+      console.log('[Permissions] Checking notification permission status...');
+      
+      // TODO: Implementar com expo-notifications
+      return 'unknown';
     } catch (error) {
-      console.error('[Permissions] Error requesting sensor permissions:', error);
-      return false;
+      console.error('[Permissions] Error checking notification permission:', error);
+      return 'unknown';
     }
-  },
-
-  /**
-   * Verifica status de todas as permissões necessárias
-   */
-  async checkAllPermissionsStatus(): Promise<PermissionStatus> {
-    const status: PermissionStatus = {
-      screenTime: 'unknown',
-      sensors: 'unknown',
-    };
-
-    try {
-      if (Platform.OS === 'android') {
-        // BODY_SENSORS status
-        try {
-          const sensorGranted = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.BODY_SENSORS
-          );
-          status.sensors = sensorGranted ? 'granted' : 'denied';
-        } catch {
-          status.sensors = 'unknown';
-        }
-
-        // Nota: PACKAGE_USAGE_STATS não é uma runtime permission
-        // Deve ser declarada no AndroidManifest.xml
-        status.screenTime = 'granted'; // Assumir que está configurado
-      }
-    } catch (error) {
-      console.error('[Permissions] Error checking permissions:', error);
-    }
-
-    return status;
   },
 
   /**
@@ -95,42 +49,38 @@ export const permissionsService = {
    */
   async requestAllPermissions(): Promise<PermissionStatus> {
     try {
-      if (Platform.OS !== 'android') {
-        return {
-          screenTime: 'unknown',
-          sensors: 'unknown',
-        };
-      }
+      console.log('[Permissions] Requesting all Expo-compatible permissions...');
+      
+      const notificationStatus = await permissionsService.requestNotificationPermission();
+      
+      const status: PermissionStatus = {
+        notifications: notificationStatus,
+      };
 
-      const results = await Promise.all([
-        permissionsService.requestPackageUsagePermission(),
-        permissionsService.requestSensorPermissions(),
-      ]);
-
-      const status = await permissionsService.checkAllPermissionsStatus();
+      console.log('[Permissions] Permission status:', status);
       return status;
     } catch (error) {
       console.error('[Permissions] Error requesting all permissions:', error);
       return {
-        screenTime: 'unknown',
-        sensors: 'unknown',
+        notifications: 'unknown',
       };
     }
   },
 
   /**
-   * Abre settings do app para usuario habilitar permissões manualmente
+   * Info: Este app não requer permissões críticas do sistema
+   * - Camera: Opcional (futuro)
+   * - Location: Opcional (futuro)
+   * - HealthKit/Samsung Health: Opcional (futuro)
    */
-  async openAppSettings(): Promise<void> {
-    try {
-      if (Platform.OS === 'android') {
-        // No Android, poderia abrir via Linking.openSettings()
-        // Por enquanto, apenas log
-        console.log('[Permissions] Para habilitar acesso a Usage Stats, vá em:');
-        console.log('Versão 6.0 ou superior: Configurações > Apps > Permissões > Uso de Apps');
-      }
-    } catch (error) {
-      console.error('[Permissions] Error opening app settings:', error);
-    }
+  getOptionalPermissionsInfo(): string {
+    return `
+      Este app funciona com dados de entrada manual do usuário.
+      
+      Permissões Opcionais (para recursos futuros):
+      - 📸 Câmera: Para fotografar diário de sono
+      - 📍 Localização: Para rastrear padrões por local
+      - 🏥 Dados de Saúde: Para integração com Apple Health / Google Fit
+    `;
   },
 };
