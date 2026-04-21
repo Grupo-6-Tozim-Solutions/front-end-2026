@@ -24,6 +24,7 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
     const [isRequesting, setIsRequesting] = useState(false);
     const [permissionsStatus, setPermissionsStatus] = useState<PermissionStatus>({
         notifications: 'unknown',
+        microphone: 'unknown',
     });
 
     const handleRequestPermissions = async () => {

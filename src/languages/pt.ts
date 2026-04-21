@@ -84,28 +84,86 @@ export const translations = {
   
   questionnaire: {
     title: 'Complete Seu Perfil',
-    subtitle: 'Nos ajude a entender seus hábitos.',
+    subtitle: 'Nos ajude a entender seus hábitos de sono e comportamento digital.',
+    progressLabel: 'Etapa {current} de {total}',
+    
+    // Step 0: Sleep Schedule
+    sleepScheduleTitle: '😴 Cronograma de Sono',
+    sleepScheduleDesc: 'Seu horário habitual de sono e acordar',
+    bedTimeLabel: 'Hora média de dormir',
+    wakeTimeLabel: 'Hora média de acordar',
+    
+    // Step 1: Phone Usage End Time
+    phoneUsageEndTimeTitle: '🌙 Uso de Celular à Noite',
+    phoneUsageEndTimeDesc: 'Até que horas você usa o celular?',
+    phoneUsageEndTimeBefore22: 'Antes das 22h',
+    phoneUsageEndTimeUntil23: 'Até 23h',
+    phoneUsageEndTimeUntil00: 'Até 00h (meia-noite)',
+    phoneUsageEndTimeAfter00: 'Após 00h',
+    
+    // Step 2: Phone in Bed
+    phoneInBedTitle: '📱 Celular na Cama',
+    phoneInBedDesc: 'Você usa o celular na cama?',
+    phoneInBedNever: 'Nunca',
+    phoneInBedSometimes: 'Às vezes',
+    phoneInBedAlways: 'Sempre',
+    
+    // Step 3: Sleep Consistency
+    sleepConsistencyTitle: '🔁 Consistência do Sono',
+    sleepConsistencyDesc: 'Seu horário de sono varia muito?',
+    sleepConsistencyRegular: 'Não, é bem regular',
+    sleepConsistencySlightVariation: 'Varia um pouco',
+    sleepConsistencyHighVariation: 'Varia muito',
+    
+    // Step 4: Wake Restfulness
+    wakeRestfulnessTitle: '😃 Qualidade do Repouso',
+    wakeRestfulnessDesc: 'Você acorda descansado?',
+    wakeRestfulnessAlways: 'Sempre',
+    wakeRestfulnessSometimes: 'Às vezes',
+    wakeRestfulnessNever: 'Nunca',
+    
+    // Step 5: Fall Asleep Duration
+    fallAsleepDurationTitle: '⏳ Tempo para Dormir',
+    fallAsleepDurationDesc: 'Quanto tempo você leva para dormir?',
+    fallAsleepDurationLess15: 'Menos de 15 minutos',
+    fallAsleepDuration15_30: '15–30 minutos',
+    fallAsleepDuration30_60: '30–60 minutos',
+    fallAsleepDurationMore60: 'Mais de 1 hora',
+    
+    // Step 6: Location
+    locationTitle: '📍 Localização da Residência',
+    locationDesc: 'Nos ajude a entender seu contexto geográfico',
+    homeZipCode: 'CEP da Residência',
+    homeZipCodeHint: 'Digite seu CEP para notificações de retorno para casa',
+    homeZipCodePlaceholder: 'ex: 12345-678',
+    getMyLocation: 'Usar minha localização',
+    gettingLocation: 'Obtendo sua localização...',
+    lookingUpCoordinates: 'Buscando coordenadas do CEP...',
+    coordinatesNotFound: 'Não foi possível encontrar as coordenadas do CEP. Tente novamente.',
+    locationError: 'Não foi possível obter sua localização. Verifique se a permissão foi concedida.',
+    addressNotFound: 'Não foi possível encontrar o endereço para sua localização.',
+    locationPermissionRequired: 'Permissão de localização necessária',
+    locationPermissionMessage: 'Para usar sua localização atual, permita o acesso à sua localização nas configurações do dispositivo.',
+    validationZipCode: 'Por favor, insira seu CEP.',
+    validationZipCodeFormat: 'CEP inválido. Digite 8 dígitos ou use o formato 12345-678.',
+    
+    // Step 7: Personal Info
+    personalInfoTitle: '👤 Informações Pessoais',
+    personalInfoDesc: 'Dados básicos para personalizar sua experiência',
     age: 'Idade',
     gender: 'Gênero',
     male: 'Masculino',
     female: 'Feminino',
     other: 'Outro',
     preferNotToSay: 'Prefiro não dizer',
-    screenTime: 'Tempo de Tela Diário',
-    screenTimeHint: 'Horas por dia',
-    screenTimeSuggestion: 'Sugestão do dispositivo',
-    bedTime: 'Hora de Dormir Habitual',
-    wakeTime: 'Hora de Acordar Habitual',
-    sleepQuality: 'Qualidade do Sono Habitual',
-    veryPoor: '1 = Muito Ruim',
-    excellent: '10 = Excelente',
-    stressLevel: 'Nível de Estresse',
-    lowStress: '1 = Baixo',
-    highStress: '10 = Alto',
-    loadingDeviceData: 'Carregando dados do dispositivo...',
+    
+    // Navigation & Actions
+    nextButton: 'Próximo',
+    previousButton: 'Voltar',
     submitButton: 'Criar Perfil',
     submitting: 'Criando seu perfil...',
-    skipButton: 'Pular por Enquanto',
+    
+    // Success & Validation
     success: 'Perfil Criado ✅',
     successMessage: 'Seu perfil foi salvo. Vamos começar a rastrear seu sono!',
     error: 'Erro',
@@ -113,22 +171,10 @@ export const translations = {
     validationAge: 'Por favor, insira sua idade.',
     validationAgeRange: 'Por favor, insira uma idade válida (1–120).',
     validationGender: 'Por favor, selecione seu gênero.',
-    validationScreenTime: 'Por favor, insira seu tempo de tela diário.',
-    validationScreenTimeRange: 'Por favor, insira um tempo de tela válido (0–24 horas).',
-    unableToReadDevice: '–– Não foi possível ler do dispositivo, insira manualmente',
-    deviceScreenTime: 'horas (do dispositivo)',
-    homeZipCode: 'CEP da Residência',
-    homeZipCodeHint: 'Digite seu CEP para notificações de retorno para casa',
-    homeZipCodePlaceholder: 'ex: 12345-678',
-    validationZipCode: 'Por favor, insira seu CEP.',
-    validationZipCodeFormat: 'CEP inválido. Digite 8 dígitos ou use o formato 12345-678.',
-    lookingUpCoordinates: 'Buscando coordenadas do CEP...',
-    coordinatesNotFound: 'Não foi possível encontrar as coordenadas do CEP. Tente novamente.',
-    getMyLocation: 'Usar minha localização',
-    gettingLocation: 'Obtendo sua localização...',
-    locationError: 'Não foi possível obter sua localização. Verifique se a permissão foi concedida.',
-    addressNotFound: 'Não foi possível encontrar o endereço para sua localização.',
-    locationPermissionRequired: 'Permissão de localização necessária',
-    locationPermissionMessage: 'Para usar sua localização atual, permita o acesso à sua localização nas configurações do dispositivo.',
+    validationPhoneUsageEndTime: 'Por favor, selecione até que horas você usa o celular.',
+    validationPhoneInBed: 'Por favor, selecione se você usa celular na cama.',
+    validationSleepConsistency: 'Por favor, selecione o quão consistente é seu sono.',
+    validationWakeRestfulness: 'Por favor, selecione como você se sente ao acordar.',
+    validationFallAsleepDuration: 'Por favor, selecione quanto tempo leva para adormecer.',
   },
 };
