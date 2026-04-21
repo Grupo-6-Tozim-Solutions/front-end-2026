@@ -15,6 +15,7 @@ import { SleepLoggingScreen } from '../screens/SleepLoggingScreen';
 import { SleepQualityScreen } from '../screens/SleepQualityScreen';
 import { SleepCoachScreen } from '../screens/SleepCoachScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { AlarmScreen } from '../screens/AlarmScreen';
 import {
     DetailedAnalysisScreen,
     InsightsScreen,
@@ -38,6 +39,7 @@ export type RootStackParamList = {
     Insights: undefined;
     WeeklyReport: undefined;
     Profile: undefined;
+    Alarm: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -141,10 +143,10 @@ const MainStack: React.FC = () => {
                 }}
             />
             <Stack.Screen
-                name="DetailedAnalysis"
-                component={DetailedAnalysisScreen}
+                name="Alarm"
+                component={AlarmScreen}
                 options={{
-                    title: 'Detailed Analysis',
+                    title: 'Despertador Inteligente',
                     headerBackTitle: 'Dashboard',
                 }}
             />
