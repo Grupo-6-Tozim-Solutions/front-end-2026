@@ -15,16 +15,14 @@ import DateTimePicker, {
 import { Picker } from '@react-native-picker/picker';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { FormInput } from '../components/FormInput';
-import { SliderInput } from '../components/SliderInput';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
-import { deviceDataService } from '../services/deviceData';
 import { getCoordsFromCEP, getCurrentLocation } from '../services/geolocation';
 import { typography, spacing, borderRadius } from '../styles/theme';
 import { UserProfile } from '../types/user';
 import { translations } from '../languages/pt';
 
-const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
+const TOTAL_STEPS = 8;
 
 const formatTime = (date: Date): string => {
     const hours = date.getHours().toString().padStart(2, '0');
@@ -40,11 +38,32 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
     const { colors } = useTheme();
     const appContext = useAppContext();
 
-    // Form state
-    const [age, setAge] = useState<string>('');
-    const [gender, setGender] = useState<string>('');
-    const [screenTime, setScreenTime] = useState<string>('');
-    const [screenTimesuggestion, setScreenTimeSuggestion] = useState<string>('');
+    // === STEP MANAGEMENT ===
+    const [currentStep, setCurrentStep] = useState<number>(0);
+
+    // === FORM DATA ===
+    // Step 0: Sleep Schedule
+    const [bedTime, setBedTime] = useState<Date>(new Date(2000, 0, 1, 23, 0));
+    const [wakeTime, setWakeTime] = useState<Date>(new Date(2000, 0, 1, 7, 0));
+    const [showBedTimePicker, setShowBedTimePicker] = useState<boolean>(false);
+    const [showWakeTimePicker, setShowWakeTimePicker] = useState<boolean>(false);
+
+    // Step 1: Phone Usage End Time
+    const [phoneUsageEndTime, setPhoneUsageEndTime] = useState<string>('');
+
+    // Step 2: Phone in Bed
+    const [phoneInBed, setPhoneInBed] = useState<string>('');
+
+    // Step 3: Sleep Consistency
+    const [sleepConsistency, setSleepConsistency] = useState<string>('');
+
+    // Step 4: Wake Restfulness
+    const [wakeRestfulness, setWakeRestfulness] = useState<string>('');
+
+    // Step 5: Fall Asleep Duration
+    const [fallAsleepDuration, setFallAsleepDuration] = useState<string>('');
+
+    // Step 6: Location
     const [homeZipCode, setHomeZipCode] = useState<string>('');
     const [homeAddress, setHomeAddress] = useState<string>('');
     const [homeStreet, setHomeStreet] = useState<string | undefined>(undefined);
@@ -52,32 +71,26 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
     const [homeState, setHomeState] = useState<string | undefined>(undefined);
     const [homeLatitude, setHomeLatitude] = useState<number | undefined>(undefined);
     const [homeLongitude, setHomeLongitude] = useState<number | undefined>(undefined);
-    const [bedTime, setBedTime] = useState<Date>(new Date(2000, 0, 1, 23, 0));
-    const [wakeTime, setWakeTime] = useState<Date>(new Date(2000, 0, 1, 7, 0));
-    const [sleepQuality, setSleepQuality] = useState<number>(5);
-    const [stressLevel, setStressLevel] = useState<number>(5);
-
-    // Time picker visibility
-    const [showBedTimePicker, setShowBedTimePicker] = useState<boolean>(false);
-    const [showWakeTimePicker, setShowWakeTimePicker] = useState<boolean>(false);
-    
-    // Loading state
-    const [isLoadingDeviceData, setIsLoadingDeviceData] = useState(true);
     const [isLoadingCoordinates, setIsLoadingCoordinates] = useState(false);
     const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
+
+    // Step 7: Personal Info
+    const [age, setAge] = useState<string>('');
+    const [gender, setGender] = useState<string>('');
+
+    // === SUBMISSION STATE ===
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Handle CEP lookup and coordinate resolution
+    // ===== LOCATION HANDLERS =====
     const handleZipCodeChange = async (value: string) => {
         setHomeZipCode(value);
-        
-        // Only lookup when we have a complete CEP (8 digits with or without hyphen)
+
         const cleanValue = value.replace('-', '');
         if (cleanValue.length === 8 && /^\d{8}$/.test(cleanValue)) {
             try {
                 setIsLoadingCoordinates(true);
                 const coords = await getCoordsFromCEP(value);
-                
+
                 if (coords) {
                     setHomeLatitude(coords.latitude);
                     setHomeLongitude(coords.longitude);
@@ -107,14 +120,13 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
         }
     };
 
-    // Handle getting current location
     const handleGetCurrentLocation = async () => {
         try {
             setIsGettingCurrentLocation(true);
             console.log('[Questionnaire] Starting location request...');
-            
+
             const location = await getCurrentLocation();
-            
+
             if (location) {
                 setHomeLatitude(location.latitude);
                 setHomeLongitude(location.longitude);
@@ -122,8 +134,8 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                 setHomeCity(location.city);
                 setHomeState(location.state);
                 setHomeAddress(`${location.street || ''}, ${location.city || ''}, ${location.state || ''}`);
-                setHomeZipCode(''); // Clear CEP when using current location
-                
+                setHomeZipCode('');
+
                 console.log('[Questionnaire] Current location set:', location);
             } else {
                 Alert.alert(
@@ -139,29 +151,7 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
         }
     };
 
-    // ===== Load device data on mount =====
-    useEffect(() => {
-        const loadDeviceData = async () => {
-            try {
-                setIsLoadingDeviceData(true);
-
-                // Screen time é entrada manual (Expo-compatível)
-                console.log('[Questionnaire] Screen time input is manual');
-                setScreenTimeSuggestion('');
-                setScreenTime('');
-
-                const deviceInfo = await deviceDataService.getDeviceInfo();
-                console.log('[Questionnaire] Device info:', deviceInfo);
-            } catch (error) {
-                console.error('[Questionnaire] Error loading device data:', error);
-            } finally {
-                setIsLoadingDeviceData(false);
-            }
-        };
-
-        loadDeviceData();
-    }, []);
-
+    // ===== TIME PICKERS =====
     const onBedTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
         setShowBedTimePicker(Platform.OS === 'ios');
         if (selectedDate) setBedTime(selectedDate);
@@ -172,42 +162,118 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
         if (selectedDate) setWakeTime(selectedDate);
     };
 
-    const validate = (): boolean => {
-        if (!age.trim()) {
-            Alert.alert(translations.common.validation, translations.questionnaire.validationAge);
-            return false;
+    // ===== VALIDATION =====
+    const validateStep = (step: number): boolean => {
+        switch (step) {
+            case 0:
+                // Sleep Schedule - times are always set, no validation needed
+                return true;
+            case 1:
+                if (!phoneUsageEndTime) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.validationPhoneUsageEndTime
+                    );
+                    return false;
+                }
+                return true;
+            case 2:
+                if (!phoneInBed) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.validationPhoneInBed
+                    );
+                    return false;
+                }
+                return true;
+            case 3:
+                if (!sleepConsistency) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.validationSleepConsistency
+                    );
+                    return false;
+                }
+                return true;
+            case 4:
+                if (!wakeRestfulness) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.validationWakeRestfulness
+                    );
+                    return false;
+                }
+                return true;
+            case 5:
+                if (!fallAsleepDuration) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.validationFallAsleepDuration
+                    );
+                    return false;
+                }
+                return true;
+            case 6:
+                // Location: at least CEP or current location must be set
+                if (!homeAddress.trim()) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.validationZipCode
+                    );
+                    return false;
+                }
+                if (homeLatitude === undefined || homeLongitude === undefined) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.coordinatesNotFound
+                    );
+                    return false;
+                }
+                return true;
+            case 7:
+                // Personal Info
+                if (!age.trim()) {
+                    Alert.alert(translations.common.validation, translations.questionnaire.validationAge);
+                    return false;
+                }
+                const ageNum = parseInt(age, 10);
+                if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.validationAgeRange
+                    );
+                    return false;
+                }
+                if (!gender) {
+                    Alert.alert(
+                        translations.common.validation,
+                        translations.questionnaire.validationGender
+                    );
+                    return false;
+                }
+                return true;
+            default:
+                return true;
         }
-        const ageNum = parseInt(age, 10);
-        if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
-            Alert.alert(translations.common.validation, translations.questionnaire.validationAgeRange);
-            return false;
-        }
-        if (!gender) {
-            Alert.alert(translations.common.validation, translations.questionnaire.validationGender);
-            return false;
-        }
-        if (!screenTime.trim()) {
-            Alert.alert(translations.common.validation, translations.questionnaire.validationScreenTime);
-            return false;
-        }
-        const screenTimeNum = parseFloat(screenTime);
-        if (isNaN(screenTimeNum) || screenTimeNum < 0 || screenTimeNum > 24) {
-            Alert.alert(translations.common.validation, translations.questionnaire.validationScreenTimeRange);
-            return false;
-        }
-        if (!homeAddress.trim()) {
-            Alert.alert(translations.common.validation, translations.questionnaire.validationZipCode);
-            return false;
-        }
-        if (homeLatitude === undefined || homeLongitude === undefined) {
-            Alert.alert(translations.common.validation, translations.questionnaire.coordinatesNotFound);
-            return false;
-        }
-        return true;
     };
 
+    // ===== NAVIGATION =====
+    const handleNext = () => {
+        if (!validateStep(currentStep)) return;
+        if (currentStep < TOTAL_STEPS - 1) {
+            setCurrentStep(currentStep + 1);
+        }
+    };
+
+    const handlePrevious = () => {
+        if (currentStep > 0) {
+            setCurrentStep(currentStep - 1);
+        }
+    };
+
+    // ===== SUBMISSION =====
     const handleSubmit = async () => {
-        if (!validate()) return;
+        if (!validateStep(currentStep)) return;
 
         try {
             setIsSubmitting(true);
@@ -215,21 +281,25 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
             const userData: UserProfile = {
                 age,
                 gender,
-                screenTimePerDay: screenTime,
+                bedTime: formatTime(bedTime),
+                wakeTime: formatTime(wakeTime),
+                phoneUsageEndTime,
+                phoneInBed,
+                sleepConsistency,
+                wakeRestfulness,
+                fallAsleepDuration,
                 homeZipCode,
                 homeAddress,
                 homeLatitude,
                 homeLongitude,
-                bedTime: formatTime(bedTime),
-                wakeTime: formatTime(wakeTime),
-                sleepQuality: sleepQuality.toString(),
-                stressLevel: stressLevel.toString(),
+                sleepQuality: '5', // Default value
+                stressLevel: '5', // Default value
                 createdAt: new Date().toISOString(),
             };
 
-            // Save to context (includes local + async sync)
+            // Save to context
             await appContext.updateUserData(userData);
-            
+
             // Mark as onboarded
             await appContext.setOnboarded(true);
 
@@ -243,9 +313,7 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                     {
                         text: translations.common.continue,
                         onPress: () => {
-                            // Navigation será automática via AppNavigator quando isOnboarded = true
-                            // Mas se houver navegação explícita, pode descomente:
-                            // navigation?.replace('Main');
+                            // Navigation will happen automatically via AppNavigator
                         },
                     },
                 ]
@@ -262,34 +330,434 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
         }
     };
 
-    const handleSkip = async () => {
-        try {
-            setIsSubmitting(true);
+    // ===== RENDER STEP CONTENT =====
+    const renderStepContent = () => {
+        switch (currentStep) {
+            case 0:
+                return (
+                    <View>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionEmoji}>😴</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                {translations.questionnaire.sleepScheduleTitle}
+                            </Text>
+                        </View>
+                        <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>
+                            {translations.questionnaire.sleepScheduleDesc}
+                        </Text>
 
-            // Create dummy data for testing
-            const userData: UserProfile = {
-                age: '25',
-                gender: 'Other',
-                screenTimePerDay: '5',
-                bedTime: '23:00',
-                wakeTime: '07:00',
-                sleepQuality: '7',
-                stressLevel: '5',
-                createdAt: new Date().toISOString(),
-            };
+                        {/* Bed Time */}
+                        <View style={styles.fieldContainer}>
+                            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                                {translations.questionnaire.bedTimeLabel}
+                            </Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.timeButton,
+                                    {
+                                        backgroundColor: colors.surfaceElevated,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                onPress={() => setShowBedTimePicker(true)}
+                            >
+                                <Text style={styles.timeIcon}>🌙</Text>
+                                <Text style={[styles.timeText, { color: colors.primary }]}>
+                                    {formatTime(bedTime)}
+                                </Text>
+                            </TouchableOpacity>
+                            {showBedTimePicker && (
+                                <DateTimePicker
+                                    value={bedTime}
+                                    mode="time"
+                                    is24Hour={true}
+                                    onChange={onBedTimeChange}
+                                />
+                            )}
+                        </View>
 
-            // Save to context
-            await appContext.updateUserData(userData);
-            
-            // Mark as onboarded
-            await appContext.setOnboarded(true);
+                        {/* Wake Time */}
+                        <View style={styles.fieldContainer}>
+                            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                                {translations.questionnaire.wakeTimeLabel}
+                            </Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.timeButton,
+                                    {
+                                        backgroundColor: colors.surfaceElevated,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                onPress={() => setShowWakeTimePicker(true)}
+                            >
+                                <Text style={styles.timeIcon}>☀️</Text>
+                                <Text style={[styles.timeText, { color: colors.primary }]}>
+                                    {formatTime(wakeTime)}
+                                </Text>
+                            </TouchableOpacity>
+                            {showWakeTimePicker && (
+                                <DateTimePicker
+                                    value={wakeTime}
+                                    mode="time"
+                                    is24Hour={true}
+                                    onChange={onWakeTimeChange}
+                                />
+                            )}
+                        </View>
+                    </View>
+                );
 
-            console.log('[Questionnaire] Skipped for testing - Default data saved');
-        } catch (error) {
-            console.error('[Questionnaire] Error skipping:', error);
-            Alert.alert(translations.common.error, translations.questionnaire.errorMessage);
-        } finally {
-            setIsSubmitting(false);
+            case 1:
+                return (
+                    <View>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionEmoji}>🌙</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                {translations.questionnaire.phoneUsageEndTimeTitle}
+                            </Text>
+                        </View>
+                        <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>
+                            {translations.questionnaire.phoneUsageEndTimeDesc}
+                        </Text>
+
+                        <View style={styles.radioGroupContainer}>
+                            {[
+                                { label: translations.questionnaire.phoneUsageEndTimeBefore22, value: 'before_22h' },
+                                { label: translations.questionnaire.phoneUsageEndTimeUntil23, value: 'until_23h' },
+                                { label: translations.questionnaire.phoneUsageEndTimeUntil00, value: 'until_00h' },
+                                { label: translations.questionnaire.phoneUsageEndTimeAfter00, value: 'after_00h' },
+                            ].map((option) => (
+                                <TouchableOpacity
+                                    key={option.value}
+                                    style={[
+                                        styles.radioButton,
+                                        {
+                                            backgroundColor: colors.surfaceElevated,
+                                            borderColor: phoneUsageEndTime === option.value ? colors.primary : colors.border,
+                                        },
+                                    ]}
+                                    onPress={() => setPhoneUsageEndTime(option.value)}
+                                >
+                                    <View
+                                        style={[
+                                            styles.radioCircle,
+                                            {
+                                                backgroundColor:
+                                                    phoneUsageEndTime === option.value ? colors.primary : 'transparent',
+                                            },
+                                        ]}
+                                    />
+                                    <Text style={[styles.radioLabel, { color: colors.text }]}>{option.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                );
+
+            case 2:
+                return (
+                    <View>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionEmoji}>📱</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                {translations.questionnaire.phoneInBedTitle}
+                            </Text>
+                        </View>
+                        <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>
+                            {translations.questionnaire.phoneInBedDesc}
+                        </Text>
+
+                        <View style={styles.radioGroupContainer}>
+                            {[
+                                { label: translations.questionnaire.phoneInBedNever, value: 'never' },
+                                { label: translations.questionnaire.phoneInBedSometimes, value: 'sometimes' },
+                                { label: translations.questionnaire.phoneInBedAlways, value: 'always' },
+                            ].map((option) => (
+                                <TouchableOpacity
+                                    key={option.value}
+                                    style={[
+                                        styles.radioButton,
+                                        {
+                                            backgroundColor: colors.surfaceElevated,
+                                            borderColor: phoneInBed === option.value ? colors.primary : colors.border,
+                                        },
+                                    ]}
+                                    onPress={() => setPhoneInBed(option.value)}
+                                >
+                                    <View
+                                        style={[
+                                            styles.radioCircle,
+                                            {
+                                                backgroundColor: phoneInBed === option.value ? colors.primary : 'transparent',
+                                            },
+                                        ]}
+                                    />
+                                    <Text style={[styles.radioLabel, { color: colors.text }]}>{option.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                );
+
+            case 3:
+                return (
+                    <View>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionEmoji}>🔁</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                {translations.questionnaire.sleepConsistencyTitle}
+                            </Text>
+                        </View>
+                        <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>
+                            {translations.questionnaire.sleepConsistencyDesc}
+                        </Text>
+
+                        <View style={styles.radioGroupContainer}>
+                            {[
+                                { label: translations.questionnaire.sleepConsistencyRegular, value: 'regular' },
+                                { label: translations.questionnaire.sleepConsistencySlightVariation, value: 'slight_variation' },
+                                { label: translations.questionnaire.sleepConsistencyHighVariation, value: 'high_variation' },
+                            ].map((option) => (
+                                <TouchableOpacity
+                                    key={option.value}
+                                    style={[
+                                        styles.radioButton,
+                                        {
+                                            backgroundColor: colors.surfaceElevated,
+                                            borderColor: sleepConsistency === option.value ? colors.primary : colors.border,
+                                        },
+                                    ]}
+                                    onPress={() => setSleepConsistency(option.value)}
+                                >
+                                    <View
+                                        style={[
+                                            styles.radioCircle,
+                                            {
+                                                backgroundColor: sleepConsistency === option.value ? colors.primary : 'transparent',
+                                            },
+                                        ]}
+                                    />
+                                    <Text style={[styles.radioLabel, { color: colors.text }]}>{option.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                );
+
+            case 4:
+                return (
+                    <View>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionEmoji}>😃</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                {translations.questionnaire.wakeRestfulnessTitle}
+                            </Text>
+                        </View>
+                        <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>
+                            {translations.questionnaire.wakeRestfulnessDesc}
+                        </Text>
+
+                        <View style={styles.radioGroupContainer}>
+                            {[
+                                { label: translations.questionnaire.wakeRestfulnessAlways, value: 'always' },
+                                { label: translations.questionnaire.wakeRestfulnessSometimes, value: 'sometimes' },
+                                { label: translations.questionnaire.wakeRestfulnessNever, value: 'never' },
+                            ].map((option) => (
+                                <TouchableOpacity
+                                    key={option.value}
+                                    style={[
+                                        styles.radioButton,
+                                        {
+                                            backgroundColor: colors.surfaceElevated,
+                                            borderColor: wakeRestfulness === option.value ? colors.primary : colors.border,
+                                        },
+                                    ]}
+                                    onPress={() => setWakeRestfulness(option.value)}
+                                >
+                                    <View
+                                        style={[
+                                            styles.radioCircle,
+                                            {
+                                                backgroundColor: wakeRestfulness === option.value ? colors.primary : 'transparent',
+                                            },
+                                        ]}
+                                    />
+                                    <Text style={[styles.radioLabel, { color: colors.text }]}>{option.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                );
+
+            case 5:
+                return (
+                    <View>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionEmoji}>⏳</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                {translations.questionnaire.fallAsleepDurationTitle}
+                            </Text>
+                        </View>
+                        <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>
+                            {translations.questionnaire.fallAsleepDurationDesc}
+                        </Text>
+
+                        <View style={styles.radioGroupContainer}>
+                            {[
+                                { label: translations.questionnaire.fallAsleepDurationLess15, value: 'less_15min' },
+                                { label: translations.questionnaire.fallAsleepDuration15_30, value: '15_30min' },
+                                { label: translations.questionnaire.fallAsleepDuration30_60, value: '30_60min' },
+                                { label: translations.questionnaire.fallAsleepDurationMore60, value: 'more_60min' },
+                            ].map((option) => (
+                                <TouchableOpacity
+                                    key={option.value}
+                                    style={[
+                                        styles.radioButton,
+                                        {
+                                            backgroundColor: colors.surfaceElevated,
+                                            borderColor: fallAsleepDuration === option.value ? colors.primary : colors.border,
+                                        },
+                                    ]}
+                                    onPress={() => setFallAsleepDuration(option.value)}
+                                >
+                                    <View
+                                        style={[
+                                            styles.radioCircle,
+                                            {
+                                                backgroundColor: fallAsleepDuration === option.value ? colors.primary : 'transparent',
+                                            },
+                                        ]}
+                                    />
+                                    <Text style={[styles.radioLabel, { color: colors.text }]}>{option.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                );
+
+            case 6:
+                return (
+                    <View>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionEmoji}>📍</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                {translations.questionnaire.locationTitle}
+                            </Text>
+                            {(isLoadingCoordinates || isGettingCurrentLocation) && (
+                                <ActivityIndicator size="small" color={colors.primary} />
+                            )}
+                        </View>
+                        <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>
+                            {translations.questionnaire.locationDesc}
+                        </Text>
+
+                        <FormInput
+                            label={translations.questionnaire.homeZipCode}
+                            value={homeZipCode}
+                            onChange={handleZipCodeChange}
+                            placeholder={translations.questionnaire.homeZipCodePlaceholder}
+                            keyboardType="numeric"
+                        />
+
+                        <TouchableOpacity
+                            style={[
+                                styles.locationButton,
+                                {
+                                    backgroundColor: colors.primary,
+                                    opacity: isGettingCurrentLocation ? 0.6 : 1,
+                                },
+                            ]}
+                            onPress={handleGetCurrentLocation}
+                            disabled={isGettingCurrentLocation}
+                        >
+                            {isGettingCurrentLocation ? (
+                                <>
+                                    <ActivityIndicator size="small" color={colors.surface} style={{ marginRight: spacing.sm }} />
+                                    <Text style={[styles.locationButtonText, { color: colors.surface }]}>
+                                        {translations.questionnaire.gettingLocation}
+                                    </Text>
+                                </>
+                            ) : (
+                                <Text style={[styles.locationButtonText, { color: colors.surface }]}>
+                                    📍 {translations.questionnaire.getMyLocation}
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+
+                        {homeAddress && homeLatitude !== undefined && homeLongitude !== undefined && (
+                            <View style={[styles.successMessage, { backgroundColor: colors.success }]}>
+                                <Text style={[styles.successMessageText, { color: colors.text, fontWeight: 'bold' }]}>
+                                    ✅ Endereço confirmado
+                                </Text>
+                                <Text style={[styles.addressText, { color: colors.text }]}>
+                                    {homeStreet && <Text>{homeStreet}</Text>}
+                                    {homeCity && homeStreet && <Text>\n</Text>}
+                                    {homeCity && <Text>{homeCity}</Text>}
+                                    {homeState && homeCity && <Text>, </Text>}
+                                    {homeState && <Text>{homeState}</Text>}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                );
+
+            case 7:
+                return (
+                    <View>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionEmoji}>👤</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                {translations.questionnaire.personalInfoTitle}
+                            </Text>
+                        </View>
+                        <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>
+                            {translations.questionnaire.personalInfoDesc}
+                        </Text>
+
+                        <FormInput
+                            label={translations.questionnaire.age}
+                            value={age}
+                            onChange={setAge}
+                            placeholder="ex: 25"
+                            keyboardType="numeric"
+                        />
+
+                        <View style={styles.fieldContainer}>
+                            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                                {translations.questionnaire.gender}
+                            </Text>
+                            <View
+                                style={[
+                                    styles.pickerWrapper,
+                                    {
+                                        backgroundColor: colors.surfaceElevated,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                            >
+                                <Picker
+                                    selectedValue={gender}
+                                    onValueChange={(value) => setGender(value)}
+                                    style={[styles.picker, { color: colors.text }]}
+                                >
+                                    <Picker.Item
+                                        label="Selecione o gênero..."
+                                        value=""
+                                        color={colors.textLight}
+                                    />
+                                    <Picker.Item label={translations.questionnaire.male} value="Male" />
+                                    <Picker.Item label={translations.questionnaire.female} value="Female" />
+                                    <Picker.Item label={translations.questionnaire.other} value="Other" />
+                                    <Picker.Item label={translations.questionnaire.preferNotToSay} value="Prefer not to say" />
+                                </Picker>
+                            </View>
+                        </View>
+                    </View>
+                );
+
+            default:
+                return null;
         }
     };
 
@@ -303,275 +771,31 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
             <View style={styles.header}>
                 <Text style={styles.headerEmoji}>📋</Text>
                 <Text style={[styles.title, { color: colors.text }]}>
-                    Seu Perfil Digital
+                    {translations.questionnaire.title}
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    Conte-nos sobre seus hábitos diários para que possamos fornecer insights personalizados.
+                    {translations.questionnaire.subtitle}
                 </Text>
             </View>
 
-            {/* Form */}
-            <View
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
-                ]}
-            >
-                {/* Section: Personal Info */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>👤</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Informações Pessoais
-                    </Text>
-                </View>
-
-                <FormInput
-                    label={translations.questionnaire.age}
-                    value={age}
-                    onChange={setAge}
-                    placeholder="ex: 25"
-                    keyboardType="numeric"
-                />
-
-                <View style={styles.fieldContainer}>
-                    <Text style={[styles.fieldLabel, { color: colors.text }]}>{translations.questionnaire.gender}</Text>
-                    <View
-                        style={[
-                            styles.pickerWrapper,
-                            {
-                                backgroundColor: colors.surfaceElevated,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                    >
-                        <Picker
-                            selectedValue={gender}
-                            onValueChange={(value) => setGender(value)}
-                            style={[styles.picker, { color: colors.text }]}
-                        >
-                            <Picker.Item
-                                label="Selecione o gênero..."
-                                value=""
-                                color={colors.textLight}
-                            />
-                            <Picker.Item label={translations.questionnaire.male} value="Male" />
-                            <Picker.Item label={translations.questionnaire.female} value="Female" />
-                            <Picker.Item label={translations.questionnaire.other} value="Other" />
-                            <Picker.Item label={translations.questionnaire.preferNotToSay} value="Prefer not to say" />
-                        </Picker>
-                    </View>
-                </View>
-            </View>
-
-            <View
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
-                ]}
-            >
-                {/* Section: Location */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>📍</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Localização da Residência
-                    </Text>
-                    {(isLoadingCoordinates || isGettingCurrentLocation) && <ActivityIndicator size="small" color={colors.primary} />}
-                </View>
-
-                <FormInput
-                    label={translations.questionnaire.homeZipCode}
-                    value={homeZipCode}
-                    onChange={handleZipCodeChange}
-                    placeholder={translations.questionnaire.homeZipCodePlaceholder}
-                    keyboardType="numeric"
-                />
-                
-                <TouchableOpacity
+            {/* Progress Bar */}
+            <View style={styles.progressContainer}>
+                <View
                     style={[
-                        styles.locationButton,
+                        styles.progressBar,
                         {
+                            width: `${((currentStep + 1) / TOTAL_STEPS) * 100}%`,
                             backgroundColor: colors.primary,
-                            opacity: isGettingCurrentLocation ? 0.6 : 1,
                         },
                     ]}
-                    onPress={handleGetCurrentLocation}
-                    disabled={isGettingCurrentLocation}
-                >
-                    {isGettingCurrentLocation ? (
-                        <>
-                            <ActivityIndicator size="small" color={colors.surface} style={{ marginRight: spacing.sm }} />
-                            <Text style={[styles.locationButtonText, { color: colors.surface }]}>
-                                {translations.questionnaire.gettingLocation}
-                            </Text>
-                        </>
-                    ) : (
-                        <Text style={[styles.locationButtonText, { color: colors.surface }]}>
-                            📍 {translations.questionnaire.getMyLocation}
-                        </Text>
-                    )}
-                </TouchableOpacity>
-                
-                {homeAddress && (homeLatitude !== undefined && homeLongitude !== undefined) && (
-                    <View style={[styles.successMessage, { backgroundColor: colors.success }]}>
-                        <Text style={[styles.successMessageText, { color: colors.text, fontWeight: 'bold' }]}>
-                            ✅ Endereço confirmado
-                        </Text>
-                        <Text style={[styles.addressText, { color: colors.text }]}>
-                            {homeStreet && <Text>{homeStreet}</Text>}
-                            {homeCity && homeStreet && <Text>\n</Text>}
-                            {homeCity && <Text>{homeCity}</Text>}
-                            {homeState && homeCity && <Text>, </Text>}
-                            {homeState && <Text>{homeState}</Text>}
-                        </Text>
-                    </View>
-                )}
-                
-                <Text style={[styles.hint, { color: colors.textSecondary }]}>
-                    {translations.questionnaire.homeZipCodeHint}
-                </Text>
-            </View>
-
-            <View
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
-                ]}
-            >
-                {/* Section: Screen Time */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>📱</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Tempo de Tela
-                    </Text>
-                    {isLoadingDeviceData && <ActivityIndicator size="small" color={colors.primary} />}
-                </View>
-
-                {isLoadingDeviceData ? (
-                    <View style={styles.loaderContainer}>
-                        <ActivityIndicator size="large" color={colors.primary} />
-                        <Text style={[styles.loaderText, { color: colors.textSecondary }]}>
-                            {translations.questionnaire.loadingDeviceData}
-                        </Text>
-                    </View>
-                ) : (
-                    <>
-                        {screenTimesuggestion && (
-                            <Text style={[styles.suggestion, { color: colors.primary }]}>
-                                💡 {screenTimesuggestion}
-                            </Text>
-                        )}
-                        <FormInput
-                            label={translations.questionnaire.screenTime}
-                            value={screenTime}
-                            onChange={setScreenTime}
-                            placeholder="ex: 5"
-                            keyboardType="decimal-pad"
-                        />
-                    </>
-                )}
-            </View>
-
-            <View
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
-                ]}
-            >
-                {/* Section: Sleep */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>😴</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Cronograma de Sono
-                    </Text>
-                </View>
-
-                {/* Bed Time */}
-                <View style={styles.fieldContainer}>
-                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        Hora média de dormir
-                    </Text>
-                    <TouchableOpacity
-                        style={[
-                            styles.timeButton,
-                            {
-                                backgroundColor: colors.surfaceElevated,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                        onPress={() => setShowBedTimePicker(true)}
-                    >
-                        <Text style={styles.timeIcon}>🌙</Text>
-                        <Text style={[styles.timeText, { color: colors.primary }]}>
-                            {formatTime(bedTime)}
-                        </Text>
-                    </TouchableOpacity>
-                    {showBedTimePicker && (
-                        <DateTimePicker
-                            value={bedTime}
-                            mode="time"
-                            is24Hour={true}
-                            onChange={onBedTimeChange}
-                        />
-                    )}
-                </View>
-
-                {/* Wake Time */}
-                <View style={styles.fieldContainer}>
-                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        Hora média de acordar
-                    </Text>
-                    <TouchableOpacity
-                        style={[
-                            styles.timeButton,
-                            {
-                                backgroundColor: colors.surfaceElevated,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                        onPress={() => setShowWakeTimePicker(true)}
-                    >
-                        <Text style={styles.timeIcon}>☀️</Text>
-                        <Text style={[styles.timeText, { color: colors.primary }]}>
-                            {formatTime(wakeTime)}
-                        </Text>
-                    </TouchableOpacity>
-                    {showWakeTimePicker && (
-                        <DateTimePicker
-                            value={wakeTime}
-                            mode="time"
-                            is24Hour={true}
-                            onChange={onWakeTimeChange}
-                        />
-                    )}
-                </View>
-
-                <SliderInput
-                    label="Qualidade de sono percebida"
-                    value={sleepQuality}
-                    min={1}
-                    max={10}
-                    onChange={(v) => setSleepQuality(Math.round(v))}
-                    minLabel={translations.questionnaire.veryPoor}
-                    maxLabel={translations.questionnaire.excellent}
                 />
             </View>
 
+            <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
+                Etapa {currentStep + 1} de {TOTAL_STEPS}
+            </Text>
+
+            {/* Step Content Card */}
             <View
                 style={[
                     styles.card,
@@ -582,27 +806,11 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                     },
                 ]}
             >
-                {/* Section: Stress */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>🧠</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Nível de Estresse
-                    </Text>
-                </View>
-
-                <SliderInput
-                    label="Nível de estresse percebido"
-                    value={stressLevel}
-                    min={1}
-                    max={10}
-                    onChange={(v) => setStressLevel(Math.round(v))}
-                    minLabel={translations.questionnaire.lowStress}
-                    maxLabel={translations.questionnaire.highStress}
-                />
+                {renderStepContent()}
             </View>
 
-            {/* Submit */}
-            <View style={styles.submitSection}>
+            {/* Navigation */}
+            <View style={styles.navigationContainer}>
                 {isSubmitting ? (
                     <View style={styles.submittingContainer}>
                         <ActivityIndicator size="large" color={colors.primary} />
@@ -612,21 +820,33 @@ export const QuestionnaireScreen: React.FC<QuestionnaireScreenProps> = ({ naviga
                     </View>
                 ) : (
                     <>
-                        <PrimaryButton
-                            title={translations.questionnaire.submitButton}
-                            onPress={handleSubmit}
-                            style={styles.submitButton}
-                            disabled={isLoadingDeviceData || isSubmitting}
-                        />
-                        <TouchableOpacity
-                            onPress={handleSkip}
-                            disabled={isSubmitting}
-                            style={styles.skipButton}
-                        >
-                            <Text style={[styles.skipButtonText, { color: colors.textSecondary }]}>
-                                {translations.questionnaire.skipButton}
-                            </Text>
-                        </TouchableOpacity>
+                        <View style={styles.buttonRow}>
+                            {currentStep > 0 && (
+                                <TouchableOpacity
+                                    style={[styles.secondaryButton, { borderColor: colors.primary }]}
+                                    onPress={handlePrevious}
+                                >
+                                    <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
+                                        {translations.questionnaire.previousButton}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {currentStep < TOTAL_STEPS - 1 ? (
+                                <PrimaryButton
+                                    title={translations.questionnaire.nextButton}
+                                    onPress={handleNext}
+                                    style={currentStep === 0 ? { ...styles.nextButton, flex: 1 } : styles.nextButton}
+                                />
+                            ) : (
+                                <PrimaryButton
+                                    title={translations.questionnaire.submitButton}
+                                    onPress={handleSubmit}
+                                    style={{ ...styles.nextButton, flex: 1 }}
+                                />
+                            )}
+                        </View>
+
                         <Text style={[styles.disclaimer, { color: colors.textLight }]}>
                             Seus dados são armazenados localmente e sincronizados com segurança quando conectado.
                         </Text>
@@ -664,6 +884,22 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 20,
     },
+    progressContainer: {
+        height: 6,
+        backgroundColor: '#e0e0e0',
+        borderRadius: 3,
+        marginBottom: spacing.md,
+        overflow: 'hidden',
+    },
+    progressBar: {
+        height: '100%',
+        borderRadius: 3,
+    },
+    progressLabel: {
+        fontSize: typography.small,
+        textAlign: 'center',
+        marginBottom: spacing.lg,
+    },
     card: {
         borderRadius: borderRadius.lg,
         borderWidth: 1,
@@ -677,7 +913,7 @@ const styles = StyleSheet.create({
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: spacing.lg,
+        marginBottom: spacing.md,
         gap: spacing.sm,
     },
     sectionEmoji: {
@@ -686,6 +922,12 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: typography.subtitle,
         fontWeight: '700',
+        flex: 1,
+    },
+    stepDesc: {
+        fontSize: typography.body,
+        marginBottom: spacing.lg,
+        lineHeight: 20,
     },
     fieldContainer: {
         marginBottom: spacing.lg,
@@ -720,66 +962,53 @@ const styles = StyleSheet.create({
         fontSize: typography.body,
         fontWeight: '600',
     },
-    submitSection: {
-        marginTop: spacing.md,
+    radioGroupContainer: {
+        gap: spacing.md,
+    },
+    radioButton: {
+        flexDirection: 'row',
         alignItems: 'center',
-    },
-    submitButton: {
-        width: '100%',
-    },
-    skipButton: {
-        marginTop: spacing.md,
-        paddingVertical: spacing.sm,
-    },
-    skipButtonText: {
-        fontSize: typography.small,
-        fontStyle: 'italic',
-        textDecorationLine: 'underline',
-    },
-    disclaimer: {
-        fontSize: typography.small,
-        textAlign: 'center',
-        marginTop: spacing.md,
-        lineHeight: 18,
-    },
-    loaderContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: spacing.lg,
-    },
-    loaderText: {
-        fontSize: typography.body,
-        marginTop: spacing.md,
-    },
-    submittingContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: spacing.lg,
-    },
-    submittingText: {
-        fontSize: typography.body,
-        marginTop: spacing.md,
-    },
-    suggestion: {
-        fontSize: typography.caption,
-        marginBottom: spacing.md,
-        paddingHorizontal: spacing.sm,
-        fontWeight: '500',
-    },
-    successMessage: {
-        padding: spacing.md,
+        borderWidth: 1,
         borderRadius: borderRadius.md,
-        marginVertical: spacing.sm,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.md,
+        gap: spacing.md,
+    },
+    radioCircle: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    radioLabel: {
+        fontSize: typography.body,
+        fontWeight: '500',
+        flex: 1,
+    },
+    navigationContainer: {
+        marginTop: spacing.md,
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        gap: spacing.md,
         alignItems: 'center',
     },
-    successMessageText: {
-        fontSize: typography.caption,
-        fontWeight: '500',
+    secondaryButton: {
+        borderWidth: 1,
+        borderRadius: borderRadius.md,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 100,
     },
-    hint: {
-        fontSize: typography.caption,
-        marginTop: spacing.sm,
-        fontStyle: 'italic',
+    secondaryButtonText: {
+        fontSize: typography.body,
+        fontWeight: '600',
+    },
+    nextButton: {
+        flex: 1,
     },
     locationButton: {
         flexDirection: 'row',
@@ -793,9 +1022,34 @@ const styles = StyleSheet.create({
         fontSize: typography.body,
         fontWeight: '600',
     },
+    successMessage: {
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        marginVertical: spacing.sm,
+        alignItems: 'center',
+    },
+    successMessageText: {
+        fontSize: typography.caption,
+        fontWeight: '500',
+    },
     addressText: {
         fontSize: typography.caption,
         marginTop: spacing.sm,
+        lineHeight: 18,
+    },
+    submittingContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: spacing.lg,
+    },
+    submittingText: {
+        fontSize: typography.body,
+        marginTop: spacing.md,
+    },
+    disclaimer: {
+        fontSize: typography.small,
+        textAlign: 'center',
+        marginTop: spacing.md,
         lineHeight: 18,
     },
 });

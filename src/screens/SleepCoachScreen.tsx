@@ -9,12 +9,16 @@ import {
     KeyboardAvoidingView,
     Platform,
     Dimensions,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { typography, spacing, borderRadius } from '../styles/theme';
 import { translations } from '../languages/pt';
 import { CoachMessage } from '../types/coach';
+import { audioService } from '../services/audioService';
+import { permissionsService } from '../services/permissions';
 
 interface SleepCoachScreenProps {
     navigation?: any;
@@ -45,7 +49,13 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }
     ]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingDuration, setRecordingDuration] = useState(0);
+    const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+    const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
     const scrollViewRef = useRef<ScrollView>(null);
+    const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const playbackUpdateRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         // Scroll to bottom when new messages arrive
@@ -54,8 +64,213 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }
         }, 100);
     }, [messages]);
 
+    useEffect(() => {
+        // Atualizar duração da gravação a cada 100ms
+        if (isRecording) {
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingDuration((prev) => prev + 100);
+            }, 100);
+        } else {
+            if (recordingTimerRef.current) {
+                clearInterval(recordingTimerRef.current);
+            }
+        }
+
+        return () => {
+            if (recordingTimerRef.current) {
+                clearInterval(recordingTimerRef.current);
+            }
+        };
+    }, [isRecording]);
+
+    useEffect(() => {
+        // Atualizar progresso de playback a cada 100ms
+        playbackUpdateRef.current = setInterval(() => {
+            if (playingAudioId) {
+                const state = audioService.getPlaybackState(playingAudioId);
+                if (state) {
+                    setAudioProgress((prev) => ({
+                        ...prev,
+                        [playingAudioId]: state.currentTime,
+                    }));
+
+                    // Para reprodução se chegou ao fim
+                    if (state.currentTime >= state.duration && !state.isPlaying) {
+                        setPlayingAudioId(null);
+                    }
+                }
+            }
+        }, 100);
+
+        return () => {
+            if (playbackUpdateRef.current) {
+                clearInterval(playbackUpdateRef.current);
+            }
+        };
+    }, [playingAudioId]);
+
+    useEffect(() => {
+        // Cleanup ao desmontar
+        return () => {
+            // Chamar clearPlaybackState de forma assíncrona
+            audioService.clearPlaybackState().catch((error) => {
+                console.error('[SleepCoach] Error clearing playback state:', error);
+            });
+        };
+    }, []);
+
     const generateMockResponse = (): string => {
         return MOCK_COACH_RESPONSES[Math.floor(Math.random() * MOCK_COACH_RESPONSES.length)];
+    };
+
+    const handleStartRecording = async () => {
+        try {
+            // Verificar permissão de microfone
+            const microphoneStatus = await permissionsService.checkMicrophonePermissionStatus();
+            
+            if (microphoneStatus === 'denied') {
+                Alert.alert(
+                    'Permissão de Microfone Negada',
+                    'Para gravar áudio, é necessário permitir o acesso ao microfone. Por favor, ative a permissão nas configurações do aplicativo.',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => { },
+                        },
+                    ]
+                );
+                return;
+            }
+
+            // Se desconhecido, solicitar permissão
+            if (microphoneStatus === 'unknown') {
+                const permStatus = await permissionsService.requestMicrophonePermission();
+                if (permStatus === 'denied') {
+                    Alert.alert(
+                        'Permissão de Microfone Negada',
+                        'Sem a permissão de microfone, não é possível gravar áudio.'
+                    );
+                    return;
+                }
+            }
+
+            const success = await audioService.startRecording();
+            if (success) {
+                setIsRecording(true);
+                setRecordingDuration(0);
+                console.log('[SleepCoach] Recording started');
+            } else {
+                Alert.alert('Erro', 'Não foi possível iniciar a gravação de áudio.');
+            }
+        } catch (error) {
+            console.error('[SleepCoach] Error starting recording:', error);
+            Alert.alert('Erro', 'Erro ao iniciar gravação.');
+        }
+    };
+
+    const handleStopRecording = async () => {
+        try {
+            setIsRecording(false);
+            const recording = await audioService.stopRecording();
+
+            if (recording) {
+                // Validar áudio
+                if (!audioService.isValidAudio(recording)) {
+                    await audioService.deleteAudio(recording.uri);
+                    Alert.alert('Áudio muito curto', 'Grave pelo menos 1 segundo de áudio.');
+                    return;
+                }
+
+                // Enviar áudio como mensagem
+                await handleSendAudio(recording);
+            }
+        } catch (error) {
+            console.error('[SleepCoach] Error stopping recording:', error);
+            Alert.alert('Erro', 'Erro ao finalizar gravação.');
+        }
+    };
+
+    const handleCancelRecording = async () => {
+        try {
+            await audioService.cancelRecording();
+            setIsRecording(false);
+            setRecordingDuration(0);
+        } catch (error) {
+            console.error('[SleepCoach] Error canceling recording:', error);
+        }
+    };
+
+    const handlePlayAudio = async (audioId: string, uri: string, duration: number) => {
+        try {
+            // Se o mesmo áudio está tocando, pausa
+            if (playingAudioId === audioId) {
+                await audioService.pauseAudio(audioId);
+                setPlayingAudioId(null);
+                return;
+            }
+
+            // Se outro áudio está tocando, para ele
+            if (playingAudioId) {
+                await audioService.stopAudio(playingAudioId);
+            }
+
+            // Inicia playback do novo áudio
+            const success = await audioService.playAudio(audioId, uri, duration);
+            if (success) {
+                setPlayingAudioId(audioId);
+                setAudioProgress((prev) => ({ ...prev, [audioId]: 0 }));
+            }
+        } catch (error) {
+            console.error('[SleepCoach] Error playing audio:', error);
+            Alert.alert('Erro', 'Erro ao reproduzir áudio.');
+        }
+    };
+
+    const handleStopPlayback = async (audioId: string) => {
+        try {
+            await audioService.stopAudio(audioId);
+            setPlayingAudioId(null);
+            setAudioProgress((prev) => ({ ...prev, [audioId]: 0 }));
+        } catch (error) {
+            console.error('[SleepCoach] Error stopping playback:', error);
+        }
+    };
+
+    const handleSendAudio = async (recording: any) => {
+        try {
+            // Criar mensagem do usuário com áudio
+            const userMessage: CoachMessage = {
+                id: `msg_${Date.now()}`,
+                role: 'user',
+                content: `[Áudio: ${audioService.formatDuration(recording.duration)}]`,
+                timestamp: Date.now(),
+                audio: {
+                    id: recording.id,
+                    uri: recording.uri,
+                    duration: recording.duration,
+                },
+                type: 'audio',
+            };
+
+            setMessages((prev) => [...prev, userMessage]);
+            setIsLoading(true);
+
+            // Simular resposta do coach
+            setTimeout(() => {
+                const coachMessage: CoachMessage = {
+                    id: `msg_${Date.now()}_coach`,
+                    role: 'coach',
+                    content: generateMockResponse(),
+                    timestamp: Date.now(),
+                };
+                setMessages((prev) => [...prev, coachMessage]);
+                setIsLoading(false);
+            }, 1000);
+        } catch (error) {
+            console.error('[SleepCoach] Error sending audio:', error);
+            Alert.alert('Erro', 'Erro ao enviar áudio.');
+            setIsLoading(false);
+        }
     };
 
     const handleSendMessage = async () => {
@@ -136,16 +351,49 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }
                                 },
                         ]}
                     >
-                        <Text
-                            style={[
-                                styles.messageText,
-                                {
-                                    color: message.role === 'coach' ? colors.text : 'white',
-                                },
-                            ]}
-                        >
-                            {message.content}
-                        </Text>
+                        {message.type === 'audio' && message.audio ? (
+                            <View style={styles.audioMessageContainer}>
+                                <TouchableOpacity
+                                    onPress={() => handlePlayAudio(message.audio!.id, message.audio!.uri, message.audio!.duration)}
+                                    style={styles.audioPlayButton}
+                                >
+                                    <Text style={styles.audioPlayButtonText}>
+                                        {playingAudioId === message.audio.id ? '⏸️' : '▶️'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <View style={styles.audioDetails}>
+                                    <View style={styles.audioProgressContainer}>
+                                        <View
+                                            style={[
+                                                styles.audioProgressBar,
+                                                {
+                                                    width: `${((audioProgress[message.audio.id] || 0) / message.audio.duration) * 100}%`,
+                                                },
+                                            ]}
+                                        />
+                                    </View>
+                                    <View style={styles.audioTimeContainer}>
+                                        <Text style={[styles.audioTime, { color: 'white' }]}>
+                                            {audioService.formatDuration(audioProgress[message.audio.id] || 0)}
+                                        </Text>
+                                        <Text style={[styles.audioTime, { color: 'rgba(255,255,255,0.6)' }]}>
+                                            {audioService.formatDuration(message.audio.duration)}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+                        ) : (
+                            <Text
+                                style={[
+                                    styles.messageText,
+                                    {
+                                        color: message.role === 'coach' ? colors.text : 'white',
+                                    },
+                                ]}
+                            >
+                                {message.content}
+                            </Text>
+                        )}
                         <Text
                             style={[
                                 styles.timestamp,
@@ -171,40 +419,83 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }
 
             {/* Input Area */}
             <View style={[styles.inputContainer, { backgroundColor: colors.surfaceElevated, borderTopColor: colors.border }]}>
-                <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <TextInput
-                        style={[styles.textInput, { color: colors.text }]}
-                        placeholder="Escreva sua pergunta..."
-                        placeholderTextColor={colors.textSecondary}
-                        value={inputValue}
-                        onChangeText={setInputValue}
-                        multiline
-                        maxLength={500}
-                        editable={!isLoading}
-                    />
-                    <TouchableOpacity
-                        onPress={handleSendMessage}
-                        disabled={!inputValue.trim() || isLoading}
-                        style={[
-                            styles.sendButton,
-                            {
-                                backgroundColor: inputValue.trim() && !isLoading ? colors.primary : colors.border,
-                            },
-                        ]}
-                    >
-                        <Text style={styles.sendButtonText}>→</Text>
-                    </TouchableOpacity>
-                </View>
+                {isRecording ? (
+                    // Recording Mode
+                    <View style={[styles.recordingBox, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
+                        <View style={styles.recordingContent}>
+                            <View style={styles.recordingIndicator}>
+                                <View style={[styles.recordingDot, { backgroundColor: colors.primary }]} />
+                                <Text style={[styles.recordingText, { color: colors.text }]}>
+                                    Gravando {audioService.formatDuration(recordingDuration)}
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.recordingButtons}>
+                            <TouchableOpacity
+                                onPress={handleCancelRecording}
+                                style={[styles.recordingButton, { backgroundColor: colors.border }]}
+                            >
+                                <Text style={styles.recordingButtonText}>✕</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={handleStopRecording}
+                                style={[styles.recordingButton, { backgroundColor: colors.primary }]}
+                            >
+                                <Text style={styles.recordingButtonText}>✓</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ) : (
+                    // Normal Input Mode
+                    <>
+                        <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <TextInput
+                                style={[styles.textInput, { color: colors.text }]}
+                                placeholder="Escreva sua pergunta..."
+                                placeholderTextColor={colors.textSecondary}
+                                value={inputValue}
+                                onChangeText={setInputValue}
+                                multiline
+                                maxLength={500}
+                                editable={!isLoading}
+                            />
+                            <TouchableOpacity
+                                onPress={handleStartRecording}
+                                disabled={isLoading}
+                                style={[
+                                    styles.audioButton,
+                                    {
+                                        backgroundColor: !isLoading ? colors.primary : colors.border,
+                                    },
+                                ]}
+                            >
+                                <Text style={styles.audioButtonText}>🎙️</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={handleSendMessage}
+                                disabled={!inputValue.trim() || isLoading}
+                                style={[
+                                    styles.sendButton,
+                                    {
+                                        backgroundColor: inputValue.trim() && !isLoading ? colors.primary : colors.border,
+                                    },
+                                ]}
+                            >
+                                <Text style={styles.sendButtonText}>→</Text>
+                            </TouchableOpacity>
+                        </View>
 
-                {/* Clear Chat Button */}
-                <TouchableOpacity
-                    onPress={handleClearChat}
-                    style={[styles.clearButton, { borderColor: colors.border }]}
-                >
-                    <Text style={[styles.clearButtonText, { color: colors.textSecondary }]}>
-                        Limpar Conversa
-                    </Text>
-                </TouchableOpacity>
+                        {/* Clear Chat Button */}
+                        <TouchableOpacity
+                            onPress={handleClearChat}
+                            style={[styles.clearButton, { borderColor: colors.border }]}
+                        >
+                            <Text style={[styles.clearButtonText, { color: colors.textSecondary }]}>
+                                Limpar Conversa
+                            </Text>
+                        </TouchableOpacity>
+                    </>
+                )}
             </View>
         </KeyboardAvoidingView>
     );
@@ -274,6 +565,17 @@ const styles = StyleSheet.create({
         fontSize: typography.body,
         paddingVertical: spacing.sm,
     },
+    audioButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    audioButtonText: {
+        fontSize: 16,
+    },
     sendButton: {
         width: 36,
         height: 36,
@@ -297,5 +599,100 @@ const styles = StyleSheet.create({
     clearButtonText: {
         fontSize: typography.caption,
         fontWeight: '600',
+    },
+    audioMessageContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        width: '100%',
+    },
+    audioPlayButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
+    },
+    audioPlayButtonText: {
+        fontSize: 20,
+    },
+    audioDetails: {
+        flex: 1,
+        gap: spacing.sm,
+    },
+    audioProgressContainer: {
+        height: 3,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 2,
+        overflow: 'hidden',
+    },
+    audioProgressBar: {
+        height: '100%',
+        backgroundColor: 'white',
+        borderRadius: 2,
+    },
+    audioTimeContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    audioTime: {
+        fontSize: typography.caption,
+    },
+    audioIcon: {
+        fontSize: 24,
+    },
+    audioInfo: {
+        gap: spacing.xs,
+    },
+    audioLabel: {
+        fontSize: typography.small,
+        fontWeight: '600',
+    },
+    audioDuration: {
+        fontSize: typography.caption,
+    },
+    recordingBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderWidth: 2,
+        borderRadius: borderRadius.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+    },
+    recordingContent: {
+        flex: 1,
+    },
+    recordingIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    recordingDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+    },
+    recordingText: {
+        fontSize: typography.body,
+        fontWeight: '600',
+    },
+    recordingButtons: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    recordingButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    recordingButtonText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: 'white',
     },
 });

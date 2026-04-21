@@ -6,11 +6,17 @@ export interface UserProfile {
   id?: string;
   age: string;
   gender: string;
-  screenTimePerDay: string; // horas por dia
   bedTime: string; // HH:MM
   wakeTime: string; // HH:MM
   sleepQuality: string; // 1-10 scale or "low" | "medium" | "high"
   stressLevel: string; // 1-10 scale or "low" | "medium" | "high"
+  // Phone usage behavior (replaces screenTimePerDay)
+  phoneUsageEndTime: string; // "before_22h" | "until_23h" | "until_00h" | "after_00h"
+  phoneInBed: string; // "never" | "sometimes" | "always"
+  sleepConsistency: string; // "regular" | "slight_variation" | "high_variation"
+  wakeRestfulness: string; // "always" | "sometimes" | "never"
+  fallAsleepDuration: string; // "less_15min" | "15_30min" | "30_60min" | "more_60min"
+  // Location
   homeZipCode?: string; // CEP da residência (ex: 12345678)
   homeAddress?: string; // Endereço legível (ex: "Rua X, 123, São Paulo, SP")
   homeLatitude?: number; // Latitude da residência (internal)
@@ -74,4 +80,5 @@ export interface DeviceData {
 
 export interface PermissionStatus {
   notifications: 'granted' | 'denied' | 'unknown';
+  microphone: 'granted' | 'denied' | 'unknown';
 }
