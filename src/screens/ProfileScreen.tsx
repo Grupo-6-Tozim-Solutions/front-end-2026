@@ -16,7 +16,6 @@ import { useAppContext } from '../contexts/AppContext';
 import { typography, spacing, borderRadius } from '../styles/theme';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { translations } from '../languages/pt';
-import { deviceDataService } from '../services/deviceData';
 
 interface ProfileScreenProps {
   navigation?: NativeStackNavigationProp<RootStackParamList, 'Profile'>;
@@ -26,7 +25,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const { colors } = useTheme();
   const appContext = useAppContext();
   const userData = appContext.userData;
-  const [isImportingScreenTime, setIsImportingScreenTime] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -113,59 +111,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             </Text>
           </View>
 
-          {/* Screen Time */}
+          {/* Phone Usage End Time */}
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Tempo de Tela/Dia
+              Fim do Uso de Celular
             </Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>
-              {userData.screenTimePerDay}h
+              {userData.phoneUsageEndTime}
             </Text>
           </View>
 
-          {/* Import screen time opt-in */}
+          {/* Phone in Bed */}
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Importar Tempo de Tela
+              Celular na Cama
             </Text>
-            <TouchableOpacity
-              onPress={async () => {
-                if (!userData) return;
-                if (Platform.OS !== 'android') {
-                  Alert.alert('Indisponível', 'Importação de tempo de tela está disponível apenas no Android por enquanto.');
-                  return;
-                }
-                try {
-                  setIsImportingScreenTime(true);
-                  const data = await deviceDataService.getScreenTimeData();
-                  if (!data) {
-                    Alert.alert('Nenhum dado', 'Não foi possível obter dados de tempo de tela no momento.');
-                    return;
-                  }
-                  const updated = {
-                    ...userData,
-                    screenTimePerDay: data.screenTimePerDay ?? userData.screenTimePerDay,
-                    bedTime: data.bedTime ?? userData.bedTime,
-                    wakeTime: data.wakeTime ?? userData.wakeTime,
-                  };
-                  await appContext.updateUserData(updated);
-                  Alert.alert('Importado', 'Dados de tempo de tela atualizados.');
-                } catch (error) {
-                  console.error('Import screen time error:', error);
-                  Alert.alert('Erro', 'Falha ao importar tempo de tela.');
-                } finally {
-                  setIsImportingScreenTime(false);
-                }
-              }}
-              style={{ paddingVertical: 6, paddingHorizontal: 10 }}
-              disabled={isImportingScreenTime}
-            >
-              {isImportingScreenTime ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={[styles.infoValue, { color: colors.primary }]}>Importar</Text>
-              )}
-            </TouchableOpacity>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
+              {userData.phoneInBed}
+            </Text>
           </View>
 
           {/* Bed Time */}

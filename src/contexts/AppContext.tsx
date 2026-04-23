@@ -1,8 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { UserProfile, SleepLog, AppContextType, SleepQualityMetrics } from '../types/user';
 import { submitOnboarding, submitSleepLog, getSyncQueue, getGlobalSleepQualityAverage } from '../services/api';
 import { calculateSleepQualityMetrics } from '../utils/sleepQualityCalculations';
+import {
+  requestNotificationPermissions,
+  rescheduleAllNotifications,
+  cancelAllNotifications,
+} from '../services/notificationService';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -21,11 +27,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [syncQueue, setSyncQueue] = useState<SleepLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [globalQualityAverage, setGlobalQualityAverage] = useState(7.2);
+  
+  // Notification state
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [currentNotificationType, setCurrentNotificationType] = useState<'bed_reminder' | 'wake_reminder' | null>(null);
 
   // ===== Load Data on App Start =====
   useEffect(() => {
     loadUserData();
     loadGlobalMetrics();
+    initializeNotifications();
   }, []);
 
   // ===== Auto-sync pending items every 30 seconds =====
@@ -87,6 +98,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // ===== Initialize Notifications =====
+  const initializeNotifications = async () => {
+    try {
+      const hasPermission = await requestNotificationPermissions();
+      if (hasPermission) {
+        console.log('[AppContext] Notifications initialized');
+        console.log('[AppContext] ⚠️ Note: Using Expo Go with limited notification features. For full functionality, use development build.');
+      }
+    } catch (error) {
+      console.warn('[AppContext] Notifications may have limited features in Expo Go:', error);
+    }
+  };
+
+  // ===== Open notification modal =====
+  const showNotificationModal = (type: 'bed_reminder' | 'wake_reminder') => {
+    setCurrentNotificationType(type);
+    setNotificationModalVisible(true);
+  };
+
+  // ===== Close notification modal =====
+  const closeNotificationModal = () => {
+    setNotificationModalVisible(false);
+    setCurrentNotificationType(null);
+  };
+
   // ===== Get calculated sleep quality metrics =====
   const userQualityStats = (): SleepQualityMetrics => {
     return calculateSleepQualityMetrics(sleepLogs, globalQualityAverage, 7);
@@ -107,6 +143,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setUserData(data);
       await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(data));
+
+      // Schedule notifications for sleep reminders
+      try {
+        await rescheduleAllNotifications(data.bedTime, data.wakeTime);
+        console.log('[AppContext] Notifications scheduled for bed/wake times');
+      } catch (err) {
+        console.warn('[AppContext] Could not schedule notifications:', err);
+      }
 
       // Attempt to sync immediately
       try {
@@ -243,6 +287,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isLoading,
         syncQueue,
         globalQualityAverage,
+        notificationModalVisible,
+        currentNotificationType,
         setOnboarded,
         updateUserData,
         addSleepLog,
@@ -253,6 +299,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loadGlobalMetrics,
         userQualityStats,
         clearAllData,
+        showNotificationModal,
+        closeNotificationModal,
       }}
     >
       {children}
