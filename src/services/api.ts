@@ -1,7 +1,16 @@
 import { UserProfile, SleepLog } from '../types/user';
+import api from './client';
 
-const BASE_URL = 'http://localhost:8000';
-const API_TIMEOUT = 10000; // 10 segundos
+const SHOW_LOG_PREFIX = process.env.EXPO_PUBLIC_SHOW_LOG_PREFIX !== 'false';
+
+/**
+ * Helper para criar prefixo de log
+ * @param service - Nome do serviço
+ * @returns Prefixo formatado ou string vazia conforme EXPO_PUBLIC_SHOW_LOG_PREFIX
+ */
+const logPrefix = (service: string): string => {
+    return SHOW_LOG_PREFIX ? `[${service}] ` : '';
+};
 
 /**
  * @deprecated Use submitOnboarding() in AppContext instead
@@ -15,24 +24,6 @@ export interface QuestionnaireData {
     sleepQuality: number;
     stressLevel: number;
 }
-
-/**
- * Helper para fazer requisições com timeout
- */
-const fetchWithTimeout = async (url: string, options: RequestInit): Promise<Response> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-
-    try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal,
-        });
-        return response;
-    } finally {
-        clearTimeout(timeoutId);
-    }
-};
 
 /**
  * Submits onboarding data (user profile) to the backend API
@@ -232,35 +223,25 @@ export const submitQuestionnaire = async (
 };
 
 /**
- * Gets global sleep quality average (benchmark)
- * Returns default 7.2 if backend unavailable (offline fallback)
- * TODO: Enable when backend is ready
+ * Gets global sleep median (mediana de sono da população)
+ * Fetches from backend endpoint: GET /mediana-sono
+ * Returns 0 if backend unavailable (offline fallback)
  */
 export const getGlobalSleepQualityAverage = async (): Promise<number> => {
-    // API calls disabled for now - backend integration pending
-    // Using benchmark fallback value
-    return 7.2;
-    
-    // Uncomment below when backend is ready:
-    /*
     try {
-        const response = await fetchWithTimeout(`${BASE_URL}/api/sleep-quality/global-average`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
+        console.log(`${logPrefix('API')}Fetching global sleep median from /mediana-sono...`);
+        
+        const response = await api.get('/sleep-kpi/mediana-sono');
+        
+        const mediana = response.data?.sono_mediano_populacao || 0;
 
-        if (!response.ok) {
-            console.warn(`[API] Failed to fetch global average: ${response.status}`);
-            return 7.2; // Fallback to default
-        }
+        console.log(`${logPrefix('API')}Global sleep median fetched successfully: ${mediana}`);
+        return mediana;
 
-        const result = await response.json();
-        return result.average || 7.2;
     } catch (error) {
-        console.error('[API] Get Global Sleep Quality Average Error:', error);
-        return 7.2; // Offline fallback
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`${logPrefix('API')}Error fetching global sleep median:`, errorMessage);
+        console.log(`${logPrefix('API')}Using fallback value: 0`);
+        return 0;
     }
-    */
 };
