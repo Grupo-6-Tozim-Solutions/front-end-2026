@@ -20,7 +20,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
   const [syncQueue, setSyncQueue] = useState<SleepLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [globalQualityAverage, setGlobalQualityAverage] = useState(7.2);
+  const [globalQualityAverage, setGlobalQualityAverage] = useState(0);
 
   // ===== Load Data on App Start =====
   useEffect(() => {
