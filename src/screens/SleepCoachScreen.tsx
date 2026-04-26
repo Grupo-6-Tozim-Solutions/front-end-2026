@@ -12,6 +12,7 @@ import {
     Alert,
     ActivityIndicator,
 } from 'react-native';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { typography, spacing, borderRadius } from '../styles/theme';
@@ -19,22 +20,13 @@ import { translations } from '../languages/pt';
 import { CoachMessage } from '../types/coach';
 import { audioService } from '../services/audioService';
 import { permissionsService } from '../services/permissions';
+import { processChat, sendChatMessage, sendChatAudio } from '../services/chatService';
 
 interface SleepCoachScreenProps {
     navigation?: any;
 }
 
 const { height } = Dimensions.get('window');
-
-// Mock AI responses (placeholder for future real AI integration)
-const MOCK_COACH_RESPONSES = [
-    'Que interessante! Você poderia tentar estabelecer uma rotina de sono consistente? Dormir e acordar no mesmo horário todos os dias ajuda muito.',
-    'Entendo. Uma boa dica é evitar telas 30 minutos antes de dormir. A luz azul dos dispositivos pode prejudicar seu descanso.', 
-    'Excelente pergunta! Atividades relaxantes como meditação ou leitura antes de dormir podem melhorar significativamente sua qualidade de sono.',
-    'Você está no caminho certo! Manter o quarto escuro, fresco e silencioso é fundamental para um bom sono.',
-    'Ótimo de saber! Continue registrando seus dados de sono para que possamos acompanhar seu progresso e dar recomendações personalizadas.',
-    'Que legal! Exercícios regulares (mas não perto da hora de dormir) ajudam muito a melhorar a qualidade do sono.',
-];
 
 export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }) => {
     const { colors } = useTheme();
@@ -118,10 +110,6 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }
             });
         };
     }, []);
-
-    const generateMockResponse = (): string => {
-        return MOCK_COACH_RESPONSES[Math.floor(Math.random() * MOCK_COACH_RESPONSES.length)];
-    };
 
     const handleStartRecording = async () => {
         try {
@@ -238,6 +226,12 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }
 
     const handleSendAudio = async (recording: any) => {
         try {
+            console.log('[SleepCoach] Audio recording data:', {
+                id: recording.id,
+                uri: recording.uri,
+                duration: recording.duration,
+            });
+
             // Criar mensagem do usuário com áudio
             const userMessage: CoachMessage = {
                 id: `msg_${Date.now()}`,
@@ -255,20 +249,46 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }
             setMessages((prev) => [...prev, userMessage]);
             setIsLoading(true);
 
-            // Simular resposta do coach
-            setTimeout(() => {
+            try {
+                console.log('[SleepCoach] Reading audio file:', recording.uri);
+                
+                // Ler arquivo de áudio e converter para base64
+                const audioBase64 = await FileSystemLegacy.readAsStringAsync(recording.uri, {
+                    encoding: 'base64',
+                });
+
+                console.log('[SleepCoach] Audio file read successfully, size:', audioBase64.length);
+                console.log('[SleepCoach] Sending audio via base64...');
+
+                // Enviar áudio para API usando endpoint com base64
+                const response = await sendChatAudio(audioBase64, 'audio.m4a');
+                console.log('[SleepCoach] Audio response received:', response);
+
+                // Criar mensagem do coach com resposta real
                 const coachMessage: CoachMessage = {
                     id: `msg_${Date.now()}_coach`,
                     role: 'coach',
-                    content: generateMockResponse(),
+                    content: response.ai_response,
                     timestamp: Date.now(),
+                    type: 'text',
                 };
+
                 setMessages((prev) => [...prev, coachMessage]);
+            } catch (error: any) {
+                console.error('[SleepCoach] Error sending audio:', error);
+
+                // Mostrar erro amigável
+                const errorMessage = error.message || 'Erro ao processar áudio. Tente novamente.';
+                Alert.alert('Erro ao enviar áudio', errorMessage);
+
+                // Remover mensagem de carregamento
+                setMessages((prev) => prev.slice(0, -1));
+            } finally {
                 setIsLoading(false);
-            }, 1000);
+            }
         } catch (error) {
-            console.error('[SleepCoach] Error sending audio:', error);
-            Alert.alert('Erro', 'Erro ao enviar áudio.');
+            console.error('[SleepCoach] Error preparing audio:', error);
+            Alert.alert('Erro', 'Erro ao preparar áudio para envio.');
             setIsLoading(false);
         }
     };
@@ -288,17 +308,31 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }
         setInputValue('');
         setIsLoading(true);
 
-        // Simulate AI response delay
-        setTimeout(() => {
+        try {
+            // Enviar mensagem para API
+            const response = await sendChatMessage(inputValue);
+
+            // Criar mensagem do coach com resposta real
             const coachMessage: CoachMessage = {
                 id: `msg_${Date.now()}_coach`,
                 role: 'coach',
-                content: generateMockResponse(),
+                content: response.ai_response,
                 timestamp: Date.now(),
             };
+
             setMessages(prev => [...prev, coachMessage]);
+        } catch (error: any) {
+            console.error('[SleepCoach] Error sending message:', error);
+
+            // Mostrar erro amigável
+            const errorMessage = error.message || 'Erro ao enviar mensagem. Tente novamente.';
+            Alert.alert('Erro ao enviar mensagem', errorMessage);
+
+            // Remover mensagem do usuário em caso de erro
+            setMessages(prev => prev.slice(0, -1));
+        } finally {
             setIsLoading(false);
-        }, 1000);
+        }
     };
 
     const handleClearChat = () => {
