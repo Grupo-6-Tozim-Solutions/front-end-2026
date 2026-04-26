@@ -25,13 +25,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
   const [syncQueue, setSyncQueue] = useState<SleepLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [globalQualityAverage, setGlobalQualityAverage] = useState(7.2);
-  
+  const [isLoading, setIsLoading] = useState(true);  
   // Notification state
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [currentNotificationType, setCurrentNotificationType] = useState<'bed_reminder' | 'wake_reminder' | null>(null);
-
+  const [globalQualityAverage, setGlobalQualityAverage] = useState(0);
   // ===== Load Data on App Start =====
   useEffect(() => {
     loadUserData();

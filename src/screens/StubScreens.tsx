@@ -17,13 +17,7 @@ export const InsightsScreen: React.FC = () => (
     />
 );
 
-export const WeeklyReportScreen: React.FC = () => (
-    <StubScreenTemplate
-        icon="📈"
-        title="Weekly Report"
-        description="Your sleep trends and patterns for the week"
-    />
-);
+
 
 export const ExperimentsScreen: React.FC = () => (
     <StubScreenTemplate

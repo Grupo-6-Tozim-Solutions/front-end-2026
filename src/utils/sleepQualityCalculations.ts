@@ -5,7 +5,7 @@
 
 import { SleepLog, SleepQualityMetrics } from '../types/user';
 
-const DEFAULT_GLOBAL_AVERAGE = 7.2;
+const DEFAULT_GLOBAL_AVERAGE = 0;
 
 /**
  * Converts quality string (1-10) to number
