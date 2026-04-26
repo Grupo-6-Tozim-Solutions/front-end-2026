@@ -18,8 +18,8 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import {
     DetailedAnalysisScreen,
     InsightsScreen,
-    WeeklyReportScreen,
 } from '../screens/StubScreens';
+import { WeeklyReportScreen } from '../screens/WeeklyReportScreen';
 import { ThemeToggle } from '../components/ThemeToggle';
 
 // Type definitions
