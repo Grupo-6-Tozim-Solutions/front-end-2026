@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -42,16 +42,43 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
 
   // Wake Reminder State
   const [qualityScore, setQualityScore] = useState('7');
-  const [hoursSlept, setHoursSlept] = useState('7');
+  const [hoursSlept, setHoursSlept] = useState('0');
+  const [bedTimeActual, setBedTimeActual] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
 
   // Loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (visible && type === 'wake_reminder') {
+      const today = new Date().toISOString().split('T')[0];
+      const todayLog = appContext.sleepLogs.find(log => log.date === today && log.bedTimeActual);
+      
+      if (todayLog && todayLog.bedTimeActual) {
+        setBedTimeActual(todayLog.bedTimeActual);
+        const now = new Date();
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const [bedHours, bedMinutes] = todayLog.bedTimeActual.split(':').map(Number);
+        const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
+        let hoursDiff = currentHours - bedHours;
+        let minutesDiff = currentMinutes - bedMinutes;
+        if (hoursDiff < 0) {
+          hoursDiff += 24;
+        }
+        const totalHours = (hoursDiff + minutesDiff / 60).toFixed(1);
+        setHoursSlept(totalHours);
+      } else {
+        setHoursSlept('0');
+        setBedTimeActual(null);
+      }
+    }
+  }, [visible, type, appContext.sleepLogs]);
+
   const handleReset = () => {
     setIsGoingToBed(null);
     setQualityScore('7');
-    setHoursSlept('7');
+    setHoursSlept('0');
+    setBedTimeActual(null);
     setNotes('');
   };
 
@@ -245,21 +272,47 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                   </Text>
                 </View>
 
-                {/* Hours Slept */}
+                {/* Bed Time Info */}
+                {bedTimeActual && (
+                  <View style={styles.fieldContainer}>
+                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                      Horário que você dormiu
+                    </Text>
+                    <View
+                      style={[
+                        styles.infoBox,
+                        {
+                          backgroundColor: colors.background,
+                          borderColor: colors.cardBorder,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.infoText, { color: colors.text }]}>
+                        🛏️ {bedTimeActual}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Hours Slept Display */}
                 <View style={styles.fieldContainer}>
                   <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                    Horas de Sono (1-12)
+                    Horas de Sono (calculado)
                   </Text>
-                  <SliderInput
-                    label="Horas"
-                    value={parseInt(hoursSlept, 10)}
-                    onChange={(val: number) => setHoursSlept(String(val))}
-                    min={1}
-                    max={12}
-                    step={0.5}
-                  />
-                  <Text style={[styles.scoreDisplay, { color: colors.primary }]}>
-                    {hoursSlept}h
+                  <View
+                    style={[
+                      styles.hoursBox,
+                      {
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.hoursText]}>
+                      {hoursSlept}h
+                    </Text>
+                  </View>
+                  <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+                    Baseado no horário que você dormiu
                   </Text>
                 </View>
 
@@ -407,5 +460,32 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: typography.body,
     fontWeight: '700',
+  },
+  infoBox: {
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  infoText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+  },
+  hoursBox: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 80,
+  },
+  hoursText: {
+    color: 'white',
+    fontSize: 48,
+    fontWeight: '800',
+  },
+  helperText: {
+    fontSize: typography.small,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });
