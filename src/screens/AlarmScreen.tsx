@@ -1,21 +1,32 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import PushNotification from 'react-native-push-notification';
+import { View, Text, Button, StyleSheet, Alert } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { DateTriggerInput, SchedulableTriggerInputTypes } from 'expo-notifications';
+import { lightColors, typography } from '../styles/theme';
+import { PrimaryButton } from '../components/PrimaryButton';
 
 interface AlarmScreenProps {
-  navigation?: NativeStackNavigationProp<RootStackParamList, 'Profile'>;
+  navigation?: NativeStackNavigationProp<RootStackParamList, 'Alarm'>;
 }
 
 const IDEAL_SLEEP = 8;
 const MAX_COMPENSATION = 2;
 
 export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
-  const [horasSemana, setHorasSemana] = useState<string[]>(['', '', '', '', '']);
-  const [horaDormir, setHoraDormir] = useState('');
+  const mockedHorasSemana = [7.5, 8.0, 6.5, 7.0, 7.25];
+  const mockHoraDormir = '23:00';
   const [resultado, setResultado] = useState<number | null>(null);
+  const [horaAcordar, setHoraAcordar] = useState<string | null>(null);
 
+  useEffect(() => {
+    const horasFinal = calcularSonoFimDeSemana(mockedHorasSemana);
+    setResultado(horasFinal);
+  }, []);
+
+  // Calcula quantas horas de sono são necessárias no fim de semana
+  // Leva em conta o déficit de sono da semana (máximo 2 horas de compensação)
   function calcularSonoFimDeSemana(horas: number[]) {
     const media = horas.reduce((a, b) => a + b, 0) / horas.length;
     const deficit = IDEAL_SLEEP - media;
@@ -23,42 +34,57 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
     return IDEAL_SLEEP + compensacao;
   }
 
+  // Calcula a hora em que o usuário deve acordar
+  // Adiciona as horas de sono à hora em que vai dormir
   function calcularHorarioAcordar(horaDormir: Date, horasSono: number) {
     const acordar = new Date(horaDormir);
     acordar.setHours(acordar.getHours() + horasSono);
     return acordar;
   }
 
-  function agendarAlarme(data: Date, horasFinal: number) {
-    PushNotification.localNotificationSchedule({
-      message: `⏰ Hora de acordar! Você dormiu ${horasFinal.toFixed(1)}h`,
-      date: data,
-      allowWhileIdle: true,
-    });
+  // Agenda uma notificação (alarme) para a hora especificada
+  // Solicita permissões de notificação se necessário
+  // Cria um alarme que será disparado na data/hora definida
+  async function agendarAlarme(data: Date, horasFinal: number) {
+    try {
+      // Solicitar permissões se necessário
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Erro', 'Permissões de notificação são necessárias para agendar alarmes');
+        return;
+      }
+
+      const trigger: DateTriggerInput = {
+        type: SchedulableTriggerInputTypes.DATE,
+        date: data,
+};
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '⏰ Hora de acordar!',
+          body: `Você dormiu ${horasFinal.toFixed(1)}h`,
+          sound: 'default',
+        },
+        trigger,
+      });
+    } catch (error) {
+      console.error('Erro ao agendar alarme:', error);
+      Alert.alert('Erro', 'Não foi possível agendar o alarme');
+    }
   }
 
-  function handleCalcular() {
-    const horas = horasSemana.map(h => parseFloat(h));
-
-    if (horas.some(isNaN)) {
-      Alert.alert('Erro', 'Preencha todas as horas corretamente');
+  // Manipulador do botão "Agendar despertador"
+  // Usa horário de dormir mockado e agenda o alarme com base no cálculo automático
+  async function handleAgendar() {
+    if (!resultado) {
+      Alert.alert('Erro', 'Não foi possível calcular o tempo de sono');
       return;
     }
 
-    const horasFinal = calcularSonoFimDeSemana(horas);
-    setResultado(horasFinal);
-  }
-
-  function handleAgendar() {
-    if (!resultado || !horaDormir) {
-      Alert.alert('Erro', 'Calcule e informe o horário de dormir');
-      return;
-    }
-
-    const [hora, minuto] = horaDormir.split(':').map(Number);
+    const [hora, minuto] = mockHoraDormir.split(':').map(Number);
 
     if (isNaN(hora) || isNaN(minuto)) {
-      Alert.alert('Erro', 'Formato inválido. Use HH:mm');
+      Alert.alert('Erro', 'Formato de horário de dormir inválido');
       return;
     }
 
@@ -69,49 +95,36 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
 
     const acordar = calcularHorarioAcordar(dormir, resultado);
 
-    agendarAlarme(acordar, resultado);
+    await agendarAlarme(acordar, resultado);
 
-    Alert.alert('Sucesso', `Despertador definido para ${acordar.toLocaleTimeString()}`);
+    setHoraAcordar(acordar.toLocaleTimeString());
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Recuperação de Sono</Text>
+      <Text style={styles.time}>11:30</Text>
 
-      <Text style={styles.label}>Horas dormidas na semana:</Text>
+      <Text style={styles.label}>7h 40min de sono recomendado</Text>
 
-      {horasSemana.map((valor, index) => (
-        <TextInput
-          key={index}
-          style={styles.input}
-          placeholder={`Dia ${index + 1}`}
-          keyboardType="numeric"
-          value={valor}
-          onChangeText={(text) => {
-            const nova = [...horasSemana];
-            nova[index] = text;
-            setHorasSemana(nova);
-          }}
-        />
-      ))}
+      <Text style={styles.description}>
+        O app calcula seu despertar com base no seu histórico de sono, horário médio de dormir e necessidade de recuperação.
+      </Text>
 
-      <Button title="Calcular sono ideal" onPress={handleCalcular} />
+      <Text>Confira se você não tem compromissos nesse horário.</Text>
 
-      {resultado && (
-        <Text style={styles.result}>
-          Você deve dormir {resultado.toFixed(1)} horas
-        </Text>
-      )}
+      <View style={styles.cardContainer}>
+        <View style={styles.card}>
+        <Text style={styles.cardTitle}>Dorme em média</Text>
+          <Text style={styles.cardValue}>23:45</Text>
+        </View>
 
-      <Text style={styles.label}>Horário de dormir (HH:mm):</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Ex: 23:00"
-        value={horaDormir}
-        onChangeText={setHoraDormir}
-      />
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Déficit</Text>
+          <Text style={styles.cardValue}>1h 20min</Text>
+        </View>
+      </View>
 
-      <Button title="Agendar despertador" onPress={handleAgendar} />
+      <PrimaryButton title="Ativar despertador" onPress={handleAgendar} />
     </View>
   );
 };
@@ -120,27 +133,55 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    justifyContent: 'center',
+    justifyContent: 'space-evenly',
   },
   title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontSize: typography.subtitle,
+    marginBottom: 10,
   },
-  label: {
-    marginTop: 10,
+  cardContainer: {
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+  },
+  card: {
+    flex: 1, // ocupa metade da largura
+    backgroundColor: '#eee',
+    padding: 12,
+    borderRadius: 10,
+    marginHorizontal: 5,
+  },
+  cardTitle: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginTop: 5,
-    borderRadius: 5,
-  },
-  result: {
-    marginTop: 15,
+  cardValue: {
+    marginTop: 8,
     fontSize: 18,
+    fontWeight: '600',
+  },
+  time: {
+    fontSize: 60,
     fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: lightColors.primaryDark,
+  },
+  label: {
+    fontSize: typography.subtitle,
+  },
+  description: {
+    fontSize: 18,
+  },
+  alarmTime: {
+    marginTop: 15,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+    textAlign: 'center',
+  },
+  mockValue: {
+    marginTop: 5,
+    fontSize: 18,
+    fontWeight: '600',
   },
 });

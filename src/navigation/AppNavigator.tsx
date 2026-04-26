@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { typography } from '../styles/theme';
@@ -44,140 +44,6 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const OnboardingStack: React.FC = () => {
-    const { colors } = useTheme();
-
-    return (
-        <Stack.Navigator
-            initialRouteName="Welcome"
-            screenOptions={{
-                headerStyle: {
-                    backgroundColor: colors.background,
-                },
-                headerTintColor: colors.text,
-                headerTitleStyle: {
-                    fontWeight: '700',
-                    fontSize: typography.subtitle,
-                },
-                headerShadowVisible: false,
-                contentStyle: {
-                    backgroundColor: colors.background,
-                },
-                headerRight: () => <ThemeToggle />,
-            }}
-        >
-            <Stack.Screen
-                name="Welcome"
-                component={WelcomeScreen}
-                options={{ headerShown: false }}
-            />
-            <Stack.Screen
-                name="Permissions"
-                component={PermissionsScreen}
-                options={{
-                    title: 'Permissions',
-                    headerBackTitle: 'Back',
-                }}
-            />
-            <Stack.Screen
-                name="Questionnaire"
-                component={QuestionnaireScreen}
-                options={{
-                    title: 'Your Profile',
-                    headerBackTitle: 'Back',
-                }}
-            />
-        </Stack.Navigator>
-    );
-};
-
-const MainStack: React.FC = () => {
-    const { colors } = useTheme();
-
-    return (
-        <Stack.Navigator
-            initialRouteName="Dashboard"
-            screenOptions={{
-                headerStyle: {
-                    backgroundColor: colors.background,
-                },
-                headerTintColor: colors.text,
-                headerTitleStyle: {
-                    fontWeight: '700',
-                    fontSize: typography.subtitle,
-                },
-                headerShadowVisible: false,
-                contentStyle: {
-                    backgroundColor: colors.background,
-                },
-                headerRight: () => <ThemeToggle />,
-            }}
-        >
-            <Stack.Screen
-                name="Dashboard"
-                component={DashboardScreen}
-                options={{ headerShown: false }}
-            />
-            <Stack.Screen
-                name="SleepLogging"
-                component={SleepLoggingScreen}
-                options={{
-                    title: 'Log Sleep',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="SleepQuality"
-                component={SleepQualityScreen}
-                options={{
-                    title: 'Qualidade do Sono',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="SleepCoach"
-                component={SleepCoachScreen}
-                options={{
-                    title: 'Coach do Sono',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="Alarm"
-                component={AlarmScreen}
-                options={{
-                    title: 'Despertador Inteligente',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="Insights"
-                component={InsightsScreen}
-                options={{
-                    title: 'Insights',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="WeeklyReport"
-                component={WeeklyReportScreen}
-                options={{
-                    title: 'Weekly Report',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="Profile"
-                component={ProfileScreen}
-                options={{
-                    title: 'Profile',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-        </Stack.Navigator>
-    );
-};
-
 export const AppNavigator: React.FC = () => {
     const { isDark, colors } = useTheme();
     const appContext = useAppContext();
@@ -195,6 +61,22 @@ export const AppNavigator: React.FC = () => {
         },
     }), [isDark, colors]);
 
+    const screenOptions: NativeStackNavigationOptions = {
+        headerStyle: {
+            backgroundColor: colors.background,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+            fontWeight: '700',
+            fontSize: typography.subtitle,
+        },
+        headerShadowVisible: false,
+        contentStyle: {
+            backgroundColor: colors.background,
+        },
+        headerRight: () => <ThemeToggle />,
+    };
+
     // Show loading screen while app context is initializing
     if (appContext.isLoading) {
         return (
@@ -211,7 +93,93 @@ export const AppNavigator: React.FC = () => {
 
     return (
         <NavigationContainer theme={navigationTheme}>
-            {appContext.isOnboarded ? <MainStack /> : <OnboardingStack />}
+            <Stack.Navigator
+                initialRouteName={appContext.isOnboarded ? 'Dashboard' : 'Welcome'}
+                screenOptions={screenOptions}
+            >
+                <Stack.Screen
+                    name="Welcome"
+                    component={WelcomeScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="Permissions"
+                    component={PermissionsScreen}
+                    options={{
+                        title: 'Permissions',
+                        headerBackTitle: 'Back',
+                    }}
+                />
+                <Stack.Screen
+                    name="Questionnaire"
+                    component={QuestionnaireScreen}
+                    options={{
+                        title: 'Your Profile',
+                        headerBackTitle: 'Back',
+                    }}
+                />
+                <Stack.Screen
+                    name="Dashboard"
+                    component={DashboardScreen}
+                    options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                    name="SleepLogging"
+                    component={SleepLoggingScreen}
+                    options={{
+                        title: 'Log Sleep',
+                        headerBackTitle: 'Dashboard',
+                    }}
+                />
+                <Stack.Screen
+                    name="SleepQuality"
+                    component={SleepQualityScreen}
+                    options={{
+                        title: 'Qualidade do Sono',
+                        headerBackTitle: 'Dashboard',
+                    }}
+                />
+                <Stack.Screen
+                    name="SleepCoach"
+                    component={SleepCoachScreen}
+                    options={{
+                        title: 'Coach do Sono',
+                        headerBackTitle: 'Dashboard',
+                    }}
+                />
+                <Stack.Screen
+                    name="Alarm"
+                    component={AlarmScreen}
+                    options={{
+                        title: 'Despertador Inteligente',
+                        headerBackTitle: 'Dashboard',
+                    }}
+                />
+                <Stack.Screen
+                    name="Insights"
+                    component={InsightsScreen}
+                    options={{
+                        title: 'Insights',
+                        headerBackTitle: 'Dashboard',
+                    }}
+                />
+                <Stack.Screen
+                    name="WeeklyReport"
+                    component={WeeklyReportScreen}
+                    options={{
+                        title: 'Weekly Report',
+                        headerBackTitle: 'Dashboard',
+                    }}
+                />
+                <Stack.Screen
+                    name="Profile"
+                    component={ProfileScreen}
+                    options={{
+                        title: 'Profile',
+                        headerBackTitle: 'Dashboard',
+                    }}
+                />
+            </Stack.Navigator>
         </NavigationContainer>
     );
 };
