@@ -1,88 +1,64 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
-import { typography, spacing, borderRadius } from '../styles/theme';
+import { AppIconName, AppScreen, Button, GlassCard, Header } from '../components/ui';
+import { EmptyState } from '../components/states';
 
 interface StubScreenProps {
-    icon: string;
-    title: string;
-    description: string;
+  icon: AppIconName;
+  title: string;
+  description: string;
+  primaryActionLabel?: string;
+  onPrimaryAction?: () => void;
 }
 
-const StubScreenTemplate: React.FC<StubScreenProps> = ({ icon, title, description }) => {
-    const { colors } = useTheme();
+const StubScreenTemplate: React.FC<StubScreenProps> = ({
+  icon,
+  title,
+  description,
+  primaryActionLabel,
+  onPrimaryAction,
+}) => {
+  const { theme } = useTheme();
 
-    return (
-        <View
-            style={[
-                styles.container,
-                { backgroundColor: colors.background },
-            ]}
-        >
-            <View style={styles.content}>
-                <Text style={styles.icon}>{icon}</Text>
-                <Text style={[styles.title, { color: colors.text }]}>
-                    {title}
-                </Text>
-                <Text style={[styles.description, { color: colors.textSecondary }]}>
-                    {description}
-                </Text>
+  return (
+    <AppScreen>
+      <View style={styles.container}>
+        <Header title={title} subtitle="Módulo em evolução" icon={icon} />
 
-                <View
-                    style={[
-                        styles.badge,
-                        {
-                            backgroundColor: colors.surfaceElevated,
-                            borderColor: colors.border,
-                        },
-                    ]}
-                >
-                    <Text style={[styles.badgeText, { color: colors.primary }]}>
-                        🚀 Coming Soon
-                    </Text>
-                </View>
-            </View>
-        </View>
-    );
+        <GlassCard variant="elevated" contentStyle={styles.card}>
+          <Text style={[styles.title, { color: theme.colors.text }]}>{title}</Text>
+          <Text style={[styles.description, { color: theme.colors.textMuted }]}>{description}</Text>
+          <EmptyState
+            title="Disponível em breve"
+            description="Essa área será liberada na próxima etapa da evolução do produto."
+            icon={icon}
+          />
+          {primaryActionLabel && onPrimaryAction ? (
+            <Button title={primaryActionLabel} onPress={onPrimaryAction} icon="arrowRight" iconPosition="right" />
+          ) : null}
+        </GlassCard>
+      </View>
+    </AppScreen>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: spacing.lg,
-    },
-    content: {
-        alignItems: 'center',
-    },
-    icon: {
-        fontSize: 56,
-        marginBottom: spacing.lg,
-    },
-    title: {
-        fontSize: typography.title - 4,
-        fontWeight: '800',
-        textAlign: 'center',
-        marginBottom: spacing.sm,
-    },
-    description: {
-        fontSize: typography.caption,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: spacing.lg,
-        maxWidth: 280,
-    },
-    badge: {
-        borderRadius: borderRadius.full,
-        borderWidth: 1,
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-    },
-    badgeText: {
-        fontSize: typography.body,
-        fontWeight: '600',
-    },
+  container: {
+    flex: 1,
+    gap: 14,
+  },
+  card: {
+    gap: 10,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  description: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
 });
 
 export default StubScreenTemplate;

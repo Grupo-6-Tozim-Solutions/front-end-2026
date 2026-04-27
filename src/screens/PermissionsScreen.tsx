@@ -1,307 +1,151 @@
-import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    Alert,
-    Platform,
-} from 'react-native';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { useTheme } from '../contexts/ThemeContext';
+import React, { useMemo, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { OnboardingStackParamList } from '../navigation/AppNavigator';
+import { translations } from '../languages/pt';
 import { permissionsService } from '../services/permissions';
 import { PermissionStatus } from '../types/user';
-import { typography, spacing, borderRadius } from '../styles/theme';
-import { translations } from '../languages/pt';
+import { AppModal, AppScreen, Button, GlassCard, Header, ListItem } from '../components/ui';
+import { InlineFeedback } from '../components/states';
+import { useTheme } from '../contexts/ThemeContext';
 
-interface PermissionsScreenProps {
-    navigation?: any;
-}
+type PermissionsScreenProps = {
+  navigation: NativeStackNavigationProp<OnboardingStackParamList, 'Permissions'>;
+};
 
 export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation }) => {
-    const { colors } = useTheme();
-    const [isRequesting, setIsRequesting] = useState(false);
-    const [permissionsStatus, setPermissionsStatus] = useState<PermissionStatus>({
-        notifications: 'unknown',
-        microphone: 'unknown',
-    });
+  const { theme } = useTheme();
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [permissionsStatus, setPermissionsStatus] = useState<PermissionStatus>({
+    notifications: 'unknown',
+    microphone: 'unknown',
+  });
 
-    const handleRequestPermissions = async () => {
-        try {
-            setIsRequesting(true);
+  const notificationsGranted = useMemo(
+    () => permissionsStatus.notifications === 'granted',
+    [permissionsStatus.notifications],
+  );
 
-            console.log('[PermissionsScreen] Requesting notifications permission...');
-            const status = await permissionsService.requestAllPermissions();
-            setPermissionsStatus(status);
+  const handleContinue = () => {
+    navigation.navigate('Questionnaire');
+  };
 
-            console.log('[PermissionsScreen] Permissions status:', status);
+  const handleRequestPermissions = async () => {
+    try {
+      setIsRequesting(true);
+      const status = await permissionsService.requestAllPermissions();
+      setPermissionsStatus(status);
 
-            if (status.notifications === 'granted') {
-                Alert.alert(
-                    translations.permissions.granted,
-                    translations.permissions.grantedMessage,
-                    [
-                        {
-                            text: translations.common.continue,
-                            onPress: () => handleContinue(),
-                        },
-                    ]
-                );
-            } else {
-                // Notificações foram recusadas, mas continuar mesmo assim
-                Alert.alert(
-                    translations.permissions.optionalPermissions,
-                    translations.permissions.notificationsOptional,
-                    [
-                        {
-                            text: translations.common.continue,
-                            onPress: () => handleContinue(),
-                        },
-                    ]
-                );
-            }
-        } catch (error) {
-            console.error('[PermissionsScreen] Error requesting permissions:', error);
-            Alert.alert(translations.common.error, translations.permissions.permissionError);
-        } finally {
-            setIsRequesting(false);
-        }
-    };
+      if (status.notifications === 'granted') {
+        Alert.alert(translations.permissions.granted, translations.permissions.grantedMessage, [
+          {
+            text: translations.common.continue,
+            onPress: handleContinue,
+          },
+        ]);
+        return;
+      }
 
-    const handleSkip = () => {
-        Alert.alert(
-            translations.permissions.skipConfirm,
-            translations.permissions.skipMessage,
-            [
-                {
-                    text: translations.common.cancel,
-                    onPress: () => { },
-                    style: 'cancel',
-                },
-                {
-                    text: translations.common.skip,
-                    onPress: () => handleContinue(),
-                    style: 'default',
-                },
-            ]
-        );
-    };
+      Alert.alert(translations.permissions.optionalPermissions, translations.permissions.notificationsOptional, [
+        {
+          text: translations.common.continue,
+          onPress: handleContinue,
+        },
+      ]);
+    } catch (error) {
+      console.error('[PermissionsScreen] Error requesting permissions:', error);
+      Alert.alert(translations.common.error, translations.permissions.permissionError);
+    } finally {
+      setIsRequesting(false);
+    }
+  };
 
-    const handleContinue = () => {
-        navigation?.navigate('Questionnaire');
-    };
+  return (
+    <AppScreen scroll>
+      <Header
+        title={translations.permissions.title}
+        subtitle="Controle lembretes e captura de áudio para enriquecer sua experiência."
+        icon="shield"
+      />
 
-    const permissionItem = (
-        icon: string,
-        title: string,
-        description: string
-    ) => (
-        <View style={styles.permissionItemContainer}>
-            <Text style={styles.permissionIcon}>{icon}</Text>
-            <View style={styles.permissionTextContainer}>
-                <Text style={[styles.permissionTitle, { color: colors.text }]}>
-                    {title}
-                </Text>
-                <Text style={[styles.permissionDescription, { color: colors.textSecondary }]}>
-                    {description}
-                </Text>
-            </View>
-        </View>
-    );
+      <GlassCard variant="elevated" contentStyle={styles.cardContent}>
+        <ListItem
+          icon="bell"
+          title="Notificações"
+          subtitle="Lembretes para manter horário regular de descanso."
+          trailing={
+            <InlineFeedback
+              tone={notificationsGranted ? 'success' : 'warning'}
+              message={notificationsGranted ? 'Ativa' : 'Opcional'}
+              style={styles.inlineStatus}
+            />
+          }
+        />
+        <ListItem
+          icon="microphone"
+          title="Microfone"
+          subtitle="Ative para conversar com o coach por voz."
+          trailing={
+            <InlineFeedback
+              tone={permissionsStatus.microphone === 'granted' ? 'success' : 'info'}
+              message={permissionsStatus.microphone === 'granted' ? 'Ativo' : 'Opcional'}
+              style={styles.inlineStatus}
+            />
+          }
+        />
+      </GlassCard>
 
-    return (
-        <ScrollView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={false}
-        >
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.headerEmoji}>�</Text>
-                <Text style={[styles.title, { color: colors.text }]}>
-                    Lembretes & Notificações
-                </Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    Ative notificações para receber lembretes personalizados sobre seus hábitos de sono.
-                    Você pode continuar usando o app sem ativar, mas os lembretes não funcionarão.
-                </Text>
-            </View>
+      <GlassCard variant="subtle" contentStyle={styles.privacyCard}>
+        <InlineFeedback tone="info" message="Os dados ficam no dispositivo e só sincronizam quando houver conexão." />
+      </GlassCard>
 
-            {/* Card with permission items */}
-            <View
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
-                ]}
-            >
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>⚙️</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Recursos Opcionais
-                    </Text>
-                </View>
+      <View style={styles.actions}>
+        <Button
+          title={isRequesting ? 'Solicitando permissões...' : 'Ativar permissões'}
+          onPress={handleRequestPermissions}
+          loading={isRequesting}
+          icon="check"
+          iconPosition="right"
+        />
+        <Button
+          title="Pular por enquanto"
+          onPress={() => setShowSkipModal(true)}
+          variant="ghost"
+          disabled={isRequesting}
+        />
+      </View>
 
-                {permissionItem(
-                    '🔔',
-                    'Notificações e Lembretes',
-                    'Receba lembretes para dormir no horário ideal e acompanhar seus objetivos de sono'
-                )}
-            </View>
-
-            {/* Privacy notice */}
-            <View
-                style={[
-                    styles.privacyCard,
-                    {
-                        backgroundColor: colors.surfaceElevated,
-                        borderColor: colors.border,
-                    },
-                ]}
-            >
-                <Text style={styles.privacyEmoji}>🛡️</Text>
-                <Text style={[styles.privacyTitle, { color: colors.text }]}>
-                    Sua Privacidade está Protegida
-                </Text>
-                <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
-                    • Todos os dados são armazenados localmente no seu dispositivo{'\n'}
-                    • Nunca acessamos aplicativos pessoais ou mensagens{'\n'}
-                    • A sincronização é criptografada e opcional{'\n'}
-                </Text>
-            </View>
-
-            {/* Buttons */}
-            <View style={styles.buttonContainer}>
-                <PrimaryButton
-                    title={isRequesting ? 'Requerendo...' : 'Ativar Notificações'}
-                    onPress={handleRequestPermissions}
-                    disabled={isRequesting}
-                    style={styles.primaryButton}
-                />
-
-                <TouchableOpacity
-                    onPress={handleSkip}
-                    disabled={isRequesting}
-                    style={styles.secondaryButton}
-                >
-                    <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
-                        Pular por enquanto
-                    </Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
-    );
+      <AppModal
+        visible={showSkipModal}
+        title={translations.permissions.skipConfirm}
+        description={translations.permissions.skipMessage}
+        confirmText={translations.common.skip}
+        cancelText={translations.common.cancel}
+        onCancel={() => setShowSkipModal(false)}
+        onConfirm={() => {
+          setShowSkipModal(false);
+          handleContinue();
+        }}
+        confirmVariant="secondary"
+      />
+    </AppScreen>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    contentContainer: {
-        padding: spacing.lg,
-        paddingBottom: spacing.xxl,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: spacing.lg,
-    },
-    headerEmoji: {
-        fontSize: 36,
-        marginBottom: spacing.sm,
-    },
-    title: {
-        fontSize: typography.title - 4,
-        fontWeight: '800',
-        textAlign: 'center',
-        marginBottom: spacing.xs,
-    },
-    subtitle: {
-        fontSize: typography.caption,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-    card: {
-        borderRadius: borderRadius.lg,
-        borderWidth: 1,
-        padding: spacing.lg,
-        marginBottom: spacing.md,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.lg,
-        gap: spacing.sm,
-    },
-    sectionEmoji: {
-        fontSize: 20,
-    },
-    sectionTitle: {
-        fontSize: typography.subtitle,
-        fontWeight: '700',
-    },
-    permissionItemContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: spacing.lg,
-        gap: spacing.md,
-    },
-    permissionIcon: {
-        fontSize: 24,
-        marginTop: spacing.xs,
-    },
-    permissionTextContainer: {
-        flex: 1,
-    },
-    permissionTitle: {
-        fontSize: typography.subtitle - 2,
-        fontWeight: '600',
-        marginBottom: spacing.xs,
-    },
-    permissionDescription: {
-        fontSize: typography.caption,
-        lineHeight: 18,
-    },
-    privacyCard: {
-        borderRadius: borderRadius.md,
-        borderWidth: 1,
-        padding: spacing.md,
-        marginBottom: spacing.lg,
-        alignItems: 'center',
-    },
-    privacyEmoji: {
-        fontSize: 28,
-        marginBottom: spacing.sm,
-    },
-    privacyTitle: {
-        fontSize: typography.subtitle,
-        fontWeight: '700',
-        marginBottom: spacing.sm,
-    },
-    privacyText: {
-        fontSize: typography.caption,
-        textAlign: 'left',
-        lineHeight: 20,
-    },
-    buttonContainer: {
-        gap: spacing.md,
-    },
-    primaryButton: {
-        width: '100%',
-    },
-    secondaryButton: {
-        paddingVertical: spacing.md,
-        alignItems: 'center',
-    },
-    secondaryButtonText: {
-        fontSize: typography.body,
-        fontWeight: '600',
-    },
+  cardContent: {
+    gap: 10,
+  },
+  inlineStatus: {
+    minWidth: 96,
+  },
+  privacyCard: {
+    paddingVertical: 12,
+  },
+  actions: {
+    gap: 10,
+    marginTop: 8,
+    paddingBottom: 20,
+  },
 });

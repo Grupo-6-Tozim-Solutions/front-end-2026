@@ -1,16 +1,16 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import { ThemeColors, lightColors, darkColors } from '../styles/theme';
+import React, { createContext, useContext, useMemo } from 'react';
+import { AppTheme, theme } from '../styles/theme';
 
 interface ThemeContextData {
-  isDark: boolean;
-  colors: ThemeColors;
-  toggleTheme: () => void;
+  isDark: true;
+  theme: AppTheme;
+  colors: AppTheme['colors'];
 }
 
 const ThemeContext = createContext<ThemeContextData>({
-  isDark: false,
-  colors: lightColors,
-  toggleTheme: () => {},
+  isDark: true,
+  theme,
+  colors: theme.colors,
 });
 
 interface ThemeProviderProps {
@@ -18,24 +18,16 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [isDark, setIsDark] = useState(false);
-
-  const toggleTheme = useCallback(() => {
-    setIsDark((prev) => !prev);
-  }, []);
-
-  const colors = useMemo(() => (isDark ? darkColors : lightColors), [isDark]);
-
-  const value = useMemo(
-    () => ({ isDark, colors, toggleTheme }),
-    [isDark, colors, toggleTheme],
+  const value = useMemo<ThemeContextData>(
+    () => ({
+      isDark: true,
+      theme,
+      colors: theme.colors,
+    }),
+    [],
   );
 
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 
 export const useTheme = (): ThemeContextData => {

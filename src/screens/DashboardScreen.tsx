@@ -1,453 +1,271 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    Alert,
-    RefreshControl,
-    Button,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
-import { typography, spacing, borderRadius } from '../styles/theme';
 import { translations } from '../languages/pt';
 import { QualityComparisonChart } from '../components/QualityComparisonChart';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { AppScreen, Button, GlassCard, Header, ListItem } from '../components/ui';
+import { EmptyState, InlineFeedback } from '../components/states';
 
 interface DashboardScreenProps {
-    navigation: NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
+  navigation?: any;
 }
 
-interface MenuItem {
-    id: string;
-    icon: string;
-    title: string;
-    description: string;
-    route: keyof RootStackParamList; // Enforce route matches RootStackParamList keys
-    color: string;
-    isPrimary?: boolean;
+interface ShortcutItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: 'chart' | 'list' | 'chat' | 'profile';
+  action: () => void;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
-    const { colors } = useTheme();
-    const appContext = useAppContext();
-    const [refreshing, setRefreshing] = useState(false);
-    const [lastSleepLog, setLastSleepLog] = useState<any>(null);
+  const { theme } = useTheme();
+  const appContext = useAppContext();
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastSleepLogId, setLastSleepLogId] = useState<string | null>(null);
 
-    useFocusEffect(
-        React.useCallback(() => {
-            updateLastSleepLog();
-        }, [appContext.sleepLogs])
-    );
+  const lastSleepLog = useMemo(
+    () => appContext.sleepLogs.find((log) => log.id === lastSleepLogId) ?? appContext.sleepLogs[0],
+    [appContext.sleepLogs, lastSleepLogId],
+  );
 
-    const updateLastSleepLog = () => {
-        if (appContext.sleepLogs && appContext.sleepLogs.length > 0) {
-            setLastSleepLog(appContext.sleepLogs[0]);
-        } else {
-            setLastSleepLog(null);
-        }
-    };
+  useFocusEffect(
+    useCallback(() => {
+      setLastSleepLogId(appContext.sleepLogs[0]?.id ?? null);
+    }, [appContext.sleepLogs]),
+  );
 
-    const onRefresh = async () => {
-        try {
-            setRefreshing(true);
-            await appContext.syncWithBackend();
-            updateLastSleepLog();
-        } catch (error) {
-            console.error('Error refreshing:', error);
-        } finally {
-            setRefreshing(false);
-        }
-    };
+  const navigateTab = useCallback(
+    (tabName: string) => {
+      const parent = navigation?.getParent?.();
+      if (parent?.navigate) {
+        parent.navigate(tabName);
+      }
+    },
+    [navigation],
+  );
 
-    const menuItems: MenuItem[] = [
-        {
-            id: 'sleep-logging',
-            icon: '😴',
-            title: translations.dashboard.registerSleep,
-            description: translations.dashboard.registerSleepDesc,
-            route: 'SleepLogging',
-            color: '#6366F1',
-            isPrimary: true,
-        },
-        {
-            id: 'sleep-quality',
-            icon: '⭐',
-            title: translations.dashboard.sleepQuality,
-            description: translations.dashboard.sleepQualityDesc,
-            route: 'SleepQuality',
-            color: '#F59E0B',
-        },
-        {
-            id: 'clock',
-            icon: '⏰',
-            title: translations.dashboard.detailedAnalysis,
-            description: translations.dashboard.detailedAnalysisDesc,
-            route: 'DetailedAnalysis',
-            color: '#8B5CF6',
-        },
-        {
-            id: 'insights',
-            icon: '💡',
-            title: translations.dashboard.insights,
-            description: translations.dashboard.insightsDesc,
-            route: 'InsightsScreen',
-            color: '#EC4899',
-        },
-        {
-            id: 'sleep-coach',
-            icon: '🤖',
-            title: translations.dashboard.sleepCoach,
-            description: translations.dashboard.sleepCoachDesc,
-            route: 'SleepCoach',
-            color: '#06B6D4',
-        },
-        {
-            id: 'weekly-report',
-            icon: '📈',
-            title: translations.dashboard.weeklyReport,
-            description: translations.dashboard.weeklyReportDesc,
-            route: 'WeeklyReport',
-            color: '#F59E0B',
-        },
-        {
-            id: 'profile',
-            icon: '👤',
-            title: translations.dashboard.profile,
-            description: translations.dashboard.profileDesc,
-            route: 'Profile',
-            color: '#64748B',
-        },
-    ];
+  const shortcuts = useMemo<ShortcutItem[]>(
+    () => [
+      {
+        id: 'quality',
+        icon: 'chart',
+        title: translations.dashboard.sleepQuality,
+        description: translations.dashboard.sleepQualityDesc,
+        action: () => navigateTab('QualityTab'),
+      },
+      {
+        id: 'analysis',
+        icon: 'list',
+        title: translations.dashboard.detailedAnalysis,
+        description: translations.dashboard.detailedAnalysisDesc,
+        action: () => navigation?.navigate?.('DetailedAnalysis'),
+      },
+      {
+        id: 'insights',
+        icon: 'list',
+        title: translations.dashboard.insights,
+        description: translations.dashboard.insightsDesc,
+        action: () => navigation?.navigate?.('Insights'),
+      },
+      {
+        id: 'coach',
+        icon: 'chat',
+        title: translations.dashboard.sleepCoach,
+        description: translations.dashboard.sleepCoachDesc,
+        action: () => navigateTab('CoachTab'),
+      },
+      {
+        id: 'weekly',
+        icon: 'chart',
+        title: translations.dashboard.weeklyReport,
+        description: translations.dashboard.weeklyReportDesc,
+        action: () => navigation?.navigate?.('WeeklyReport'),
+      },
+      {
+        id: 'profile',
+        icon: 'profile',
+        title: translations.dashboard.profile,
+        description: translations.dashboard.profileDesc,
+        action: () => navigateTab('ProfileTab'),
+      },
+    ],
+    [navigateTab, navigation],
+  );
 
-    const handleMenuItemPress = (item: MenuItem) => {
-        console.log('[Dashboard] Navigating to:', item.route);
-        navigation?.navigate(item.route);
-    };
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await appContext.syncWithBackend();
+      await appContext.loadGlobalMetrics();
+    } catch (error) {
+      console.error('[Dashboard] Error refreshing:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [appContext]);
 
-    return (
-        <ScrollView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            contentContainerStyle={styles.contentContainer}
-            refreshControl={
-                <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    tintColor={colors.primary}
-                />
-            }
-        >
-            {/* Header */}
-            <View style={styles.header}>
-                <View>
-                    <Text style={[styles.greeting, { color: colors.text }]}>
-                        {translations.dashboard.greeting}
-                    </Text>
-                    <Text style={[styles.date, { color: colors.textSecondary }]}>
-                        {new Date().toLocaleDateString('pt-BR', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                        })}
-                    </Text>
-                </View>
-            </View>
+  const renderShortcut = useCallback(
+    ({ item }: { item: ShortcutItem }) => (
+      <ListItem
+        icon={item.icon}
+        title={item.title}
+        subtitle={item.description}
+        onPress={item.action}
+      />
+    ),
+    [],
+  );
 
-            {/* Chart: Quality Comparison */}
-            <QualityComparisonChart
+  return (
+    <AppScreen style={styles.screen}>
+      <FlatList
+        data={shortcuts}
+        keyExtractor={(item) => item.id}
+        renderItem={renderShortcut}
+        contentContainerStyle={styles.content}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListHeaderComponent={
+          <View style={styles.listHeader}>
+            <Header
+              title={translations.dashboard.greeting}
+              subtitle={new Date().toLocaleDateString('pt-BR', {
+                weekday: 'long',
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+              })}
+              icon="spark"
+            />
+
+            <GlassCard variant="elevated" contentStyle={styles.quickActionCard}>
+              <Text style={[styles.quickActionTitle, { color: theme.colors.text }]}>Registro rápido</Text>
+              <Text style={[styles.quickActionDescription, { color: theme.colors.textMuted }]}>Adicione o registro da noite passada em poucos toques.</Text>
+              <Button
+                title={translations.dashboard.registerSleep}
+                onPress={() => navigateTab('LoggingTab')}
+                icon="moonStars"
+                iconPosition="right"
+              />
+            </GlassCard>
+
+            <GlassCard variant="default" contentStyle={styles.chartCard}>
+              <QualityComparisonChart
                 sleepLogs={appContext.sleepLogs}
                 globalAverage={appContext.globalQualityAverage}
-                userColor={colors.primary}
-                globalColor="#94A3B8"
-                backgroundColor={colors.surfaceElevated}
-                textColor={colors.text}
-            />
+                userColor={theme.colors.accent}
+                globalColor={theme.colors.textSubtle}
+                backgroundColor={theme.colors.surface}
+                textColor={theme.colors.text}
+              />
+            </GlassCard>
 
-            {/* Last Sleep Log Card */}
-            {lastSleepLog && (
-                <View
-                    style={[
-                        styles.statusCard,
-                        {
-                            backgroundColor: colors.surfaceElevated,
-                            borderColor: colors.border,
-                        },
-                    ]}
-                >
-                    <Text style={styles.statusEmoji}>😴</Text>
-                    <View style={styles.statusContent}>
-                        <Text style={[styles.statusTitle, { color: colors.text }]}>
-                            {translations.dashboard.lastNightSleep}
-                        </Text>
-                        <Text
-                            style={[styles.statusValue, { color: colors.primary }]}
-                        >
-                            {lastSleepLog.hoursSlept} {translations.dashboard.hoursSlept}
-                        </Text>
-                        <Text
-                            style={[styles.statusDate, { color: colors.textSecondary }]}
-                        >
-                            {new Date(lastSleepLog.date).toLocaleDateString('pt-BR')}
-                        </Text>
-                    </View>
-                    {appContext.syncQueue.some(log => log.id === lastSleepLog.id) && (
-                        <View
-                            style={[
-                                styles.syncBadge,
-                                { backgroundColor: colors.primary },
-                            ]}
-                        >
-                            <Text style={styles.syncBadgeText}>⏳</Text>
-                        </View>
-                    )}
+            {lastSleepLog ? (
+              <GlassCard variant="subtle" contentStyle={styles.statusCard}>
+                <View style={styles.statusHead}>
+                  <Text style={[styles.statusTitle, { color: theme.colors.text }]}>Último registro</Text>
+                  <InlineFeedback
+                    tone={appContext.syncQueue.some((log) => log.id === lastSleepLog.id) ? 'warning' : 'success'}
+                    message={appContext.syncQueue.some((log) => log.id === lastSleepLog.id) ? 'Aguardando sync' : 'Sincronizado'}
+                    style={styles.inlineStatus}
+                  />
                 </View>
+                <Text style={[styles.statusValue, { color: theme.colors.accent }]}>Horas: {lastSleepLog.hoursSlept}</Text>
+                <Text style={[styles.statusDescription, { color: theme.colors.textMuted }]}>
+                  Data: {new Date(lastSleepLog.date).toLocaleDateString('pt-BR')}
+                </Text>
+              </GlassCard>
+            ) : (
+              <EmptyState
+                title="Sem registros ainda"
+                description="Registre seu sono para liberar métricas de tendência e comparações semanais."
+                actionLabel={translations.dashboard.registerSleep}
+                onAction={() => navigateTab('LoggingTab')}
+                icon="moonStars"
+              />
             )}
 
-            {/* Primary Action: Register Sleep */}
-            <TouchableOpacity
-                onPress={() =>
-                    handleMenuItemPress(menuItems.find(m => m.id === 'sleep-logging')!)
-                }
-                style={[
-                    styles.primaryMenuCard,
-                    {
-                        backgroundColor: colors.primary,
-                    },
-                ]}
-            >
-                <Text style={styles.primaryMenuEmoji}>😴</Text>
-                <View style={styles.primaryMenuTextContainer}>
-                    <Text style={styles.primaryMenuTitle}>{translations.dashboard.registerSleep}</Text>
-                    <Text style={styles.primaryMenuDescription}>
-                        Como você dormiu na noite passada?
-                    </Text>
-                </View>
-                <Text style={styles.primaryMenuArrow}>→</Text>
-            </TouchableOpacity>
+            {appContext.syncQueue.length > 0 ? (
+              <InlineFeedback
+                tone="warning"
+                message={`${appContext.syncQueue.length} registro(s) pendente(s) de sincronização.`}
+              />
+            ) : null}
 
-            {/* Menu Grid */}
-            <View style={styles.menuGrid}>
-                {menuItems
-                    .filter(item => !item.isPrimary)
-                    .map(item => (
-                        <TouchableOpacity
-                            key={item.id}
-                            onPress={() => handleMenuItemPress(item)}
-                            style={[
-                                styles.menuCard,
-                                {
-                                    backgroundColor: colors.surface,
-                                    borderColor: colors.cardBorder,
-                                    shadowColor: colors.shadow,
-                                },
-                            ]}
-                        >
-                            <Text style={styles.menuIcon}>{item.icon}</Text>
-                            <Text
-                                style={[
-                                    styles.menuTitle,
-                                    { color: colors.text },
-                                ]}
-                                numberOfLines={2}
-                            >
-                                {item.title}
-                            </Text>
-                            <Text
-                                style={[
-                                    styles.menuDescription,
-                                    { color: colors.textSecondary },
-                                ]}
-                                numberOfLines={1}
-                            >
-                                {item.description}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-            </View>
-
-            {/* Sync Status */}
-            {appContext.syncQueue.length > 0 && (
-                <View
-                    style={[
-                        styles.syncStatusCard,
-                        {
-                            backgroundColor: colors.surfaceElevated,
-                            borderColor: colors.border,
-                        },
-                    ]}
-                >
-                    <Text style={styles.syncStatusEmoji}>📡</Text>
-                    <Text style={[styles.syncStatusText, { color: colors.textSecondary }]}>
-                        {appContext.syncQueue.length} item(ns) aguardando sincronização
-                    </Text>
-                </View>
-            )}
-
-            {/* Insights Button */}
-            <Button
-                title="Ver Insights"
-                onPress={() => navigation.navigate('InsightsScreen')}
-            />
-        </ScrollView>
-    );
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Atalhos</Text>
+          </View>
+        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
+      />
+    </AppScreen>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    contentContainer: {
-        padding: spacing.lg,
-        paddingBottom: spacing.xxl,
-    },
-    header: {
-        marginBottom: spacing.lg,
-    },
-    greeting: {
-        fontSize: typography.title - 4,
-        fontWeight: '800',
-        marginBottom: spacing.xs,
-    },
-    date: {
-        fontSize: typography.caption,
-    },
-    statusCard: {
-        borderRadius: borderRadius.md,
-        borderWidth: 1,
-        padding: spacing.md,
-        marginBottom: spacing.lg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 1,
-    },
-    statusEmoji: {
-        fontSize: 32,
-    },
-    statusContent: {
-        flex: 1,
-    },
-    statusTitle: {
-        fontSize: typography.caption,
-        fontWeight: '600',
-        marginBottom: spacing.xs,
-    },
-    statusValue: {
-        fontSize: typography.subtitle,
-        fontWeight: '700',
-        marginBottom: spacing.xs,
-    },
-    statusDate: {
-        fontSize: typography.small,
-    },
-    syncBadge: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    syncBadgeText: {
-        fontSize: 16,
-    },
-    primaryMenuCard: {
-        borderRadius: borderRadius.lg,
-        padding: spacing.lg,
-        marginBottom: spacing.lg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 5,
-    },
-    primaryMenuEmoji: {
-        fontSize: 40,
-    },
-    primaryMenuTextContainer: {
-        flex: 1,
-    },
-    primaryMenuTitle: {
-        fontSize: typography.subtitle,
-        fontWeight: '700',
-        color: 'white',
-        marginBottom: spacing.xs,
-    },
-    primaryMenuDescription: {
-        fontSize: typography.caption,
-        color: 'rgba(255,255,255,0.8)',
-    },
-    primaryMenuArrow: {
-        fontSize: 24,
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    menuGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginBottom: spacing.lg,
-        marginHorizontal: -spacing.sm,
-    },
-    menuCard: {
-        borderRadius: borderRadius.md,
-        borderWidth: 1,
-        padding: spacing.md,
-        width: '50%',
-        paddingHorizontal: spacing.sm,
-        marginVertical: spacing.sm,
-        alignItems: 'center',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    menuIcon: {
-        fontSize: 32,
-        marginBottom: spacing.sm,
-    },
-    menuTitle: {
-        fontSize: typography.caption,
-        fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: spacing.xs,
-    },
-    menuDescription: {
-        fontSize: typography.small,
-        textAlign: 'center',
-    },
-    syncStatusCard: {
-        borderRadius: borderRadius.md,
-        borderWidth: 1,
-        padding: spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 1,
-    },
-    syncStatusEmoji: {
-        fontSize: 20,
-    },
-    syncStatusText: {
-        fontSize: typography.caption,
-        flex: 1,
-    },
-    insightsButton: {
-        borderRadius: borderRadius.lg,
-        padding: spacing.lg,
-        marginBottom: spacing.lg,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+  screen: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  content: {
+    gap: 0,
+    paddingBottom: 36,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  listHeader: {
+    gap: 12,
+    marginBottom: 12,
+  },
+  quickActionCard: {
+    gap: 10,
+  },
+  quickActionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  quickActionDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  chartCard: {
+    gap: 8,
+  },
+  statusCard: {
+    gap: 8,
+  },
+  statusHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statusTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  inlineStatus: {
+    minWidth: 130,
+  },
+  statusValue: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  statusDescription: {
+    fontSize: 13,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  separator: {
+    height: 10,
+  },
 });

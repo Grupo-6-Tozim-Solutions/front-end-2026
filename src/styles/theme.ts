@@ -1,87 +1,191 @@
 export interface ThemeColors {
-  primary: string;
-  primaryDark: string;
-  primaryLight: string;
-  accent: string;
-  accentLight: string;
-  highlight: string;
   background: string;
+  backgroundElevated: string;
   surface: string;
-  surfaceElevated: string;
-  text: string;
-  textSecondary: string;
-  textLight: string;
+  surfaceStrong: string;
+  surfaceOverlay: string;
   border: string;
-  error: string;
+  borderStrong: string;
+  text: string;
+  textMuted: string;
+  textSubtle: string;
+  accent: string;
+  accentSoft: string;
   success: string;
+  warning: string;
+  danger: string;
   white: string;
   shadow: string;
-  cardBorder: string;
 }
 
-export const lightColors: ThemeColors = {
-  primary: '#7EC8E3',
-  primaryDark: '#5BA3C9',
-  primaryLight: '#B8E2F2',
-  accent: '#B8A9D4',
-  accentLight: '#D6CCE8',
-  highlight: '#FFD966',
-  background: '#F0F4FA',
-  surface: '#FFFFFF',
-  surfaceElevated: '#FAFBFF',
-  text: '#2D2D3F',
-  textSecondary: '#6B7280',
-  textLight: '#9CA3AF',
-  border: '#E2E6F0',
-  error: '#EF4444',
-  success: '#10B981',
-  white: '#FFFFFF',
-  shadow: '#4A5568',
-  cardBorder: '#E8E0F0',
-};
+export interface ThemeBlur {
+  subtle: number;
+  card: number;
+  modal: number;
+}
 
-export const darkColors: ThemeColors = {
-  primary: '#7EC8E3',
-  primaryDark: '#5BA3C9',
-  primaryLight: '#3A7A9B',
-  accent: '#C4B5E0',
-  accentLight: '#9B8AC2',
-  highlight: '#FFD966',
-  background: '#1A1B2E',
-  surface: '#252740',
-  surfaceElevated: '#2E3050',
-  text: '#E8E8F0',
-  textSecondary: '#9CA3B8',
-  textLight: '#6B7490',
-  border: '#3A3D56',
-  error: '#F87171',
-  success: '#34D399',
-  white: '#FFFFFF',
-  shadow: '#000000',
-  cardBorder: '#3E3A56',
-};
+export interface ThemeOpacity {
+  hairline: number;
+  soft: number;
+  medium: number;
+  strong: number;
+}
 
-export const typography = {
-  title: 28,
-  subtitle: 18,
-  body: 16,
-  caption: 14,
-  small: 12,
-};
+export interface ThemeElevation {
+  none: {
+    shadowOpacity: number;
+    shadowRadius: number;
+    shadowOffset: { width: number; height: number };
+    elevation: number;
+  };
+  sm: {
+    shadowOpacity: number;
+    shadowRadius: number;
+    shadowOffset: { width: number; height: number };
+    elevation: number;
+  };
+  md: {
+    shadowOpacity: number;
+    shadowRadius: number;
+    shadowOffset: { width: number; height: number };
+    elevation: number;
+  };
+  lg: {
+    shadowOpacity: number;
+    shadowRadius: number;
+    shadowOffset: { width: number; height: number };
+    elevation: number;
+  };
+}
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-};
+export interface ThemeTypography {
+  family: {
+    regular: string;
+    medium: string;
+    semibold: string;
+    bold: string;
+  };
+  size: {
+    title: number;
+    subtitle: number;
+    body: number;
+    caption: number;
+    small: number;
+  };
+  lineHeight: {
+    title: number;
+    subtitle: number;
+    body: number;
+    caption: number;
+    small: number;
+  };
+}
 
-export const borderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  full: 9999,
+export interface AppTheme {
+  colors: ThemeColors;
+  spacing: Record<'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'xxxl', number>;
+  radius: Record<'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'pill', number>;
+  typography: ThemeTypography;
+  blur: ThemeBlur;
+  opacity: ThemeOpacity;
+  elevation: ThemeElevation;
+}
+
+export const theme: AppTheme = {
+  colors: {
+    background: '#0F0F10',
+    backgroundElevated: '#121214',
+    surface: 'rgba(255, 255, 255, 0.06)',
+    surfaceStrong: 'rgba(255, 255, 255, 0.1)',
+    surfaceOverlay: 'rgba(15, 15, 16, 0.72)',
+    border: 'rgba(255, 255, 255, 0.12)',
+    borderStrong: 'rgba(255, 255, 255, 0.22)',
+    text: '#F3F4F6',
+    textMuted: '#C7CBD1',
+    textSubtle: '#9399A4',
+    accent: '#7DD3FC',
+    accentSoft: 'rgba(125, 211, 252, 0.24)',
+    success: '#34D399',
+    warning: '#FBBF24',
+    danger: '#F87171',
+    white: '#FFFFFF',
+    shadow: '#000000',
+  },
+  spacing: {
+    xxs: 4,
+    xs: 8,
+    sm: 12,
+    md: 16,
+    lg: 24,
+    xl: 32,
+    xxl: 40,
+    xxxl: 56,
+  },
+  radius: {
+    sm: 12,
+    md: 16,
+    lg: 20,
+    xl: 24,
+    xxl: 32,
+    pill: 999,
+  },
+  typography: {
+    family: {
+      regular: 'System',
+      medium: 'System',
+      semibold: 'System',
+      bold: 'System',
+    },
+    size: {
+      title: 30,
+      subtitle: 20,
+      body: 16,
+      caption: 14,
+      small: 12,
+    },
+    lineHeight: {
+      title: 36,
+      subtitle: 26,
+      body: 24,
+      caption: 20,
+      small: 16,
+    },
+  },
+  blur: {
+    subtle: 24,
+    card: 36,
+    modal: 56,
+  },
+  opacity: {
+    hairline: 0.08,
+    soft: 0.16,
+    medium: 0.28,
+    strong: 0.4,
+  },
+  elevation: {
+    none: {
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 0,
+    },
+    sm: {
+      shadowOpacity: 0.16,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
+    },
+    md: {
+      shadowOpacity: 0.22,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 8,
+    },
+    lg: {
+      shadowOpacity: 0.3,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 12,
+    },
+  },
 };

@@ -1,400 +1,161 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  Linking,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useMemo, useState } from 'react';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
-import { typography, spacing, borderRadius } from '../styles/theme';
-import { RootStackParamList } from '../navigation/AppNavigator';
-import { translations } from '../languages/pt';
-import { deviceDataService } from '../services/deviceData';
+import { AppModal, AppScreen, Button, GlassCard, Header, ListItem } from '../components/ui';
+import { EmptyState, InlineFeedback } from '../components/states';
 
 interface ProfileScreenProps {
-  navigation?: NativeStackNavigationProp<RootStackParamList, 'Profile'>;
+  navigation?: any;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
-  const { colors } = useTheme();
+const usageLabel: Record<string, string> = {
+  before_22h: 'Uso antes das 22h',
+  until_23h: 'Uso até 23h',
+  until_00h: 'Uso até 00h',
+  after_00h: 'Uso após 00h',
+};
+
+export const ProfileScreen: React.FC<ProfileScreenProps> = () => {
+  const { theme } = useTheme();
   const appContext = useAppContext();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const userData = appContext.userData;
-  const [isImportingScreenTime, setIsImportingScreenTime] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Sair da Conta',
-      'Tem certeza que deseja sair? Seus dados locais serão removidos.',
-      [
-        {
-          text: 'Cancelar',
-          onPress: () => {},
-          style: 'cancel',
-        },
-        {
-          text: 'Sair',
-          onPress: async () => {
-            try {
-              await appContext.clearAllData();
-              // Navigation automatically reverts to OnboardingStack (Welcome screen)
-              // because isOnboarded is now false
-            } catch (error) {
-              Alert.alert('Erro', 'Não foi possível sair. Tente novamente.');
-              console.error('Logout error:', error);
-            }
-          },
-          style: 'destructive',
-        },
-      ]
+  const quickStats = useMemo(
+    () => ({
+      totalLogs: appContext.sleepLogs.length,
+      averageQuality: appContext.userQualityStats().averageQuality.toFixed(1),
+      pendingSync: appContext.syncQueue.length,
+    }),
+    [appContext],
+  );
+
+  const handleLogout = async () => {
+    try {
+      await appContext.clearAllData();
+    } catch (error) {
+      console.error('[Profile] Logout error:', error);
+      Alert.alert('Erro', 'Não foi possível limpar os dados locais.');
+    }
+  };
+
+  if (!userData) {
+    return (
+      <AppScreen>
+        <Header title="Perfil" subtitle="Sem dados de perfil" icon="profile" />
+        <EmptyState
+          title="Perfil ainda não configurado"
+          description="Complete o onboarding para visualizar preferências e histórico pessoal."
+          icon="profile"
+        />
+      </AppScreen>
     );
-  };
-
-  const getStressLevelEmoji = (level: string) => {
-    const numLevel = parseInt(level, 10);
-    if (numLevel <= 3) return '😊';
-    if (numLevel <= 6) return '😐';
-    return '😰';
-  };
+  }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerEmoji}>👤</Text>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Meu Perfil
-        </Text>
-      </View>
+    <AppScreen scroll>
+      <Header title="Perfil" subtitle="Dados pessoais e status da conta local" icon="profile" />
 
-      {/* Profile Information Card */}
-      {userData && (
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.cardBorder,
-              shadowColor: colors.shadow,
-            },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Informações Pessoais
-          </Text>
+      <GlassCard variant="elevated" contentStyle={styles.card}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Informações pessoais</Text>
+        <ListItem title="Idade" subtitle={`${userData.age} anos`} icon="profile" trailing={null} />
+        <ListItem title="Gênero" subtitle={userData.gender} icon="profile" trailing={null} />
+        <ListItem title="Horário habitual" subtitle={`${userData.bedTime} - ${userData.wakeTime}`} icon="clock" trailing={null} />
+        <ListItem
+          title="Uso noturno de celular"
+          subtitle={usageLabel[userData.phoneUsageEndTime] ?? userData.phoneUsageEndTime}
+          icon="moon"
+          trailing={null}
+        />
+        <ListItem title="Endereço base" subtitle={userData.homeAddress || 'Não informado'} icon="location" trailing={null} />
+      </GlassCard>
 
-          {/* Age */}
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Idade
-            </Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>
-              {userData.age} anos
-            </Text>
+      <GlassCard variant="default" contentStyle={styles.card}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Resumo de uso</Text>
+        <View style={styles.statRow}>
+          <View style={[styles.statItem, { borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}> 
+            <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Registros</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{quickStats.totalLogs}</Text>
           </View>
-
-          {/* Gender */}
-          <View style={[styles.infoRow, styles.infoRowBorder]}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Gênero
-            </Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>
-              {userData.gender === 'male' ? 'Masculino' : 'Feminino'}
-            </Text>
+          <View style={[styles.statItem, { borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}> 
+            <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Qualidade média</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{quickStats.averageQuality}/10</Text>
           </View>
-
-          {/* Screen Time */}
-          <View style={[styles.infoRow, styles.infoRowBorder]}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Tempo de Tela/Dia
-            </Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>
-              {userData.screenTimePerDay}h
-            </Text>
-          </View>
-
-          {/* Import screen time opt-in */}
-          <View style={[styles.infoRow, styles.infoRowBorder]}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Importar Tempo de Tela
-            </Text>
-            <TouchableOpacity
-              onPress={async () => {
-                if (!userData) return;
-                if (Platform.OS !== 'android') {
-                  Alert.alert('Indisponível', 'Importação de tempo de tela está disponível apenas no Android por enquanto.');
-                  return;
-                }
-                try {
-                  setIsImportingScreenTime(true);
-                  const data = await deviceDataService.getScreenTimeData();
-                  if (!data) {
-                    Alert.alert('Nenhum dado', 'Não foi possível obter dados de tempo de tela no momento.');
-                    return;
-                  }
-                  const updated = {
-                    ...userData,
-                    screenTimePerDay: data.screenTimePerDay ?? userData.screenTimePerDay,
-                    bedTime: data.bedTime ?? userData.bedTime,
-                    wakeTime: data.wakeTime ?? userData.wakeTime,
-                  };
-                  await appContext.updateUserData(updated);
-                  Alert.alert('Importado', 'Dados de tempo de tela atualizados.');
-                } catch (error) {
-                  console.error('Import screen time error:', error);
-                  Alert.alert('Erro', 'Falha ao importar tempo de tela.');
-                } finally {
-                  setIsImportingScreenTime(false);
-                }
-              }}
-              style={{ paddingVertical: 6, paddingHorizontal: 10 }}
-              disabled={isImportingScreenTime}
-            >
-              {isImportingScreenTime ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={[styles.infoValue, { color: colors.primary }]}>Importar</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Bed Time */}
-          <View style={[styles.infoRow, styles.infoRowBorder]}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Horário de Dormir
-            </Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>
-              {userData.bedTime}
-            </Text>
-          </View>
-
-          {/* Wake Time */}
-          <View style={[styles.infoRow, styles.infoRowBorder]}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Horário de Acordar
-            </Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>
-              {userData.wakeTime}
-            </Text>
-          </View>
-
-          {/* Stress Level */}
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-              Nível de Estresse
-            </Text>
-            <View style={styles.stressLevelContainer}>
-              <Text style={styles.stressEmoji}>
-                {getStressLevelEmoji(userData.stressLevel)}
-              </Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {userData.stressLevel}/10
-              </Text>
-            </View>
+          <View style={[styles.statItem, { borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}> 
+            <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Pendências</Text>
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{quickStats.pendingSync}</Text>
           </View>
         </View>
-      )}
 
-      {/* Stats Card */}
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.cardBorder,
-            shadowColor: colors.shadow,
-          },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Resumo de Dados
-        </Text>
+        {quickStats.pendingSync > 0 ? (
+          <InlineFeedback tone="warning" message="Há itens aguardando sincronização. Mantenha o app aberto com conexão para concluir." />
+        ) : (
+          <InlineFeedback tone="success" message="Todos os dados estão sincronizados." />
+        )}
+      </GlassCard>
 
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={styles.statEmoji}>📊</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Registros
-            </Text>
-            <Text style={[styles.statValue, { color: colors.primary }]}>
-              {appContext.sleepLogs.length}
-            </Text>
-          </View>
+      <GlassCard variant="subtle" contentStyle={styles.card}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Privacidade e suporte</Text>
+        <Button
+          title="Abrir política de privacidade"
+          onPress={() => Linking.openURL('https://github.com/your-repo/privacy')}
+          variant="secondary"
+          icon="shield"
+          iconPosition="right"
+        />
+        <Button
+          title="Limpar dados locais"
+          onPress={() => setShowLogoutModal(true)}
+          variant="ghost"
+          icon="signOut"
+          iconPosition="right"
+        />
+      </GlassCard>
 
-          <View style={styles.statItem}>
-            <Text style={styles.statEmoji}>⭐</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Qualidade Média
-            </Text>
-            <Text style={[styles.statValue, { color: colors.primary }]}>
-              {appContext.userQualityStats().averageQuality.toFixed(1)}/10
-            </Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statEmoji}>🔄</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Sincronização
-            </Text>
-            <Text style={[styles.statValue, { color: colors.primary }]}>
-              {appContext.syncQueue.length === 0 ? '✓' : appContext.syncQueue.length}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Logout Button */}
-      <TouchableOpacity
-        onPress={handleLogout}
-        style={[
-          styles.logoutButton,
-          {
-            backgroundColor: colors.error || '#EF4444',
-          },
-        ]}
-      >
-        <Text style={styles.logoutButtonText}>Sair da Conta</Text>
-      </TouchableOpacity>
-
-      {/* Footer Info */}
-      <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-          Sleep & Screen v1.0
-        </Text>
-        <Text
-          style={[styles.footerLink, { color: colors.primary }]}
-          onPress={() =>
-            Linking.openURL('https://github.com/your-repo/privacy')
-          }
-        >
-          Privacidade
-        </Text>
-      </View>
-    </ScrollView>
+      <AppModal
+        visible={showLogoutModal}
+        title="Remover dados locais"
+        description="Essa ação apaga o perfil e registros armazenados neste dispositivo."
+        confirmText="Remover"
+        cancelText="Cancelar"
+        onCancel={() => setShowLogoutModal(false)}
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          handleLogout();
+        }}
+        confirmVariant="secondary"
+      />
+    </AppScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  headerEmoji: {
-    fontSize: 36,
-    marginBottom: spacing.sm,
-  },
-  title: {
-    fontSize: typography.title - 4,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
   card: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    gap: 10,
   },
   sectionTitle: {
-    fontSize: typography.subtitle,
-    fontWeight: '700',
-    marginBottom: spacing.md,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  infoRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  infoLabel: {
-    fontSize: typography.caption,
-    fontWeight: '600',
-  },
-  infoValue: {
-    fontSize: typography.caption,
+    fontSize: 15,
     fontWeight: '700',
   },
-  stressLevelContainer: {
+  statRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  stressEmoji: {
-    fontSize: 20,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    gap: spacing.md,
+    gap: 8,
   },
   statItem: {
+    borderWidth: 1,
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  statEmoji: {
-    fontSize: 28,
-    marginBottom: spacing.sm,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
   },
   statLabel: {
-    fontSize: typography.small,
-    marginBottom: spacing.xs,
+    fontSize: 12,
+    lineHeight: 16,
   },
   statValue: {
-    fontSize: typography.title - 6,
-    fontWeight: '800',
-  },
-  logoutButton: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontSize: typography.subtitle,
+    fontSize: 16,
     fontWeight: '700',
-  },
-  footer: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  footerText: {
-    fontSize: typography.small,
-  },
-  footerLink: {
-    fontSize: typography.small,
-    fontWeight: '600',
   },
 });
