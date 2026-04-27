@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { View, Text, StyleSheet, Alert } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import { DateTriggerInput, SchedulableTriggerInputTypes } from 'expo-notifications';
+import { View, Text, StyleSheet } from 'react-native';
 import { typography } from '../styles/theme';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useTheme } from '../contexts/ThemeContext';
@@ -19,8 +17,7 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
   const mockedHorasSemana = [7.5, 8.0, 6.5, 7.0, 7.25];
   const mockHoraDormir = '23:00';
   const [resultado, setResultado] = useState<number | null>(null);
-  const [horaAcordar, setHoraAcordar] = useState<string | null>(null);
-  const [alarmId, setAlarmId] = useState<string | null>(null);
+  const [isAlarmActive, setIsAlarmActive] = useState(false);
   const { colors } = useTheme();
 
   useEffect(() => {
@@ -37,104 +34,17 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
     return IDEAL_SLEEP + compensacao;
   }
 
-  // Calcula a hora em que o usuário deve acordar
-  // Adiciona as horas de sono à hora em que vai dormir
-  function calcularHorarioAcordar(horaDormir: Date, horasSono: number) {
-    const acordar = new Date(horaDormir);
-    acordar.setHours(acordar.getHours() + horasSono);
-    return acordar;
-  }
-
-  // Agenda uma notificação (alarme) para a hora especificada
-  // Solicita permissões de notificação se necessário
-  // Cria um alarme que será disparado na data/hora definida
-  async function agendarAlarme(data: Date, horasFinal: number) {
-    try {
-      // Solicitar permissões se necessário
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Erro', 'Permissões de notificação são necessárias para agendar alarmes');
-        return null;
-      }
-
-      const trigger: DateTriggerInput = {
-        type: SchedulableTriggerInputTypes.DATE,
-        date: data,
-      };
-
-      const notificationId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '⏰ Hora de acordar!',
-          body: `Você dormiu ${horasFinal.toFixed(1)}h`,
-          sound: 'default',
-        },
-        trigger,
-      });
-
-      return notificationId;
-    } catch (error) {
-      console.error('Erro ao agendar alarme:', error);
-      Alert.alert('Erro', 'Não foi possível agendar o alarme');
-      return null;
-    }
-  }
-
-  async function cancelarAlarme() {
-    if (!alarmId) {
-      return;
-    }
-
-    try {
-      await Notifications.cancelScheduledNotificationAsync(alarmId);
-    } catch (error) {
-      console.error('Erro ao cancelar alarme:', error);
-      Alert.alert('Erro', 'Não foi possível desativar o despertador');
-    } finally {
-      setAlarmId(null);
-      setHoraAcordar(null);
-    }
-  }
-
-  // Manipulador do botão de ativar/desativar despertador
-  async function handleAgendar() {
-    if (alarmId) {
-      await cancelarAlarme();
-      return;
-    }
-    if (!resultado) {
-      Alert.alert('Erro', 'Não foi possível calcular o tempo de sono');
-      return;
-    }
-
-    const [hora, minuto] = mockHoraDormir.split(':').map(Number);
-
-    if (isNaN(hora) || isNaN(minuto)) {
-      Alert.alert('Erro', 'Formato de horário de dormir inválido');
-      return;
-    }
-
-    const dormir = new Date();
-    dormir.setHours(hora);
-    dormir.setMinutes(minuto);
-    dormir.setSeconds(0);
-
-    const acordar = calcularHorarioAcordar(dormir, resultado);
-
-    const notificationId = await agendarAlarme(acordar, resultado);
-    if (!notificationId) {
-      return;
-    }
-
-    setAlarmId(notificationId);
-    setHoraAcordar(acordar.toLocaleTimeString());
+  // Manipulador do botão de ativar/desativar despertador (mockado)
+  function handleToggleAlarm() {
+    setIsAlarmActive(!isAlarmActive);
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }] }>
 
-      <Text style={[styles.time, { color: colors.primaryDark } ]}>11:30</Text>
+      <Text style={[styles.time, { color: colors.primaryDark } ]}>08:40</Text>
 
-      <Text style={[styles.label, { color: colors.textSecondary } ]}>7h 40min de sono recomendado</Text>
+      <Text style={[styles.label, { color: colors.textSecondary } ]}>9h 40min de sono recomendado</Text>
 
       <Text style={[styles.description, { color: colors.textSecondary }]}>
         O app calcula seu despertar com base no seu histórico de sono, horário médio de dormir e necessidade de recuperação.
@@ -154,7 +64,7 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
 
       <Text style={[styles.important, { backgroundColor: colors.error, color: colors.white }]}><b>IMPORTANTE:</b> Confira se você não tem compromissos nesse horário!</Text>
 
-      <PrimaryButton title={alarmId ? 'Desativar despertador' : 'Ativar despertador'} onPress={handleAgendar} />
+      <PrimaryButton title={isAlarmActive ? 'Desativar despertador' : 'Ativar despertador'} onPress={handleToggleAlarm} />
     </View>
   );
 };
