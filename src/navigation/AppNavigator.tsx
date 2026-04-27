@@ -15,10 +15,8 @@ import { SleepLoggingScreen } from '../screens/SleepLoggingScreen';
 import { SleepQualityScreen } from '../screens/SleepQualityScreen';
 import { SleepCoachScreen } from '../screens/SleepCoachScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import {
-    DetailedAnalysisScreen,
-    InsightsScreen,
-} from '../screens/StubScreens';
+import { DetailedAnalysisScreen } from '../screens/StubScreens';
+import { InsightsScreen } from '../screens/InsightsSreen';
 import { WeeklyReportScreen } from '../screens/WeeklyReportScreen';
 import { ThemeToggle } from '../components/ThemeToggle';
 
