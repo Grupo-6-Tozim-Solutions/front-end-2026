@@ -42,9 +42,9 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
   return (
     <View style={[styles.container, { backgroundColor: colors.background }] }>
 
-      <Text style={[styles.time, { color: colors.primaryDark } ]}>08:40</Text>
+      <Text style={[styles.time, { color: colors.primaryDark } ]}>08:20</Text>
 
-      <Text style={[styles.label, { color: colors.textSecondary } ]}>9h 40min de sono recomendado</Text>
+      <Text style={[styles.label, { color: colors.textSecondary } ]}>9h 20min de sono recomendado</Text>
 
       <Text style={[styles.description, { color: colors.textSecondary }]}>
         O app calcula seu despertar com base no seu histórico de sono, horário médio de dormir e necessidade de recuperação.
