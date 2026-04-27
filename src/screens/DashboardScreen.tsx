@@ -87,7 +87,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             icon: '⏰',
             title: translations.dashboard.detailedAnalysis,
             description: translations.dashboard.detailedAnalysisDesc,
-            route: 'DetailedAnalysis',
+            route: 'Alarm',
             color: '#8B5CF6',
         },
         {

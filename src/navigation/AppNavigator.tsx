@@ -15,6 +15,7 @@ import { SleepLoggingScreen } from '../screens/SleepLoggingScreen';
 import { SleepQualityScreen } from '../screens/SleepQualityScreen';
 import { SleepCoachScreen } from '../screens/SleepCoachScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { AlarmScreen } from '../screens/AlarmScreen';
 import { DetailedAnalysisScreen } from '../screens/StubScreens';
 import { InsightsScreen } from '../screens/InsightsSreen';
 import { WeeklyReportScreen } from '../screens/WeeklyReportScreen';
@@ -168,6 +169,14 @@ const MainStack: React.FC = () => {
                 component={ProfileScreen}
                 options={{
                     title: 'Profile',
+                    headerBackTitle: 'Dashboard',
+                }}
+            />
+            <Stack.Screen
+                name="Alarm"
+                component={AlarmScreen}
+                options={{
+                    title: 'Alarm',
                     headerBackTitle: 'Dashboard',
                 }}
             />

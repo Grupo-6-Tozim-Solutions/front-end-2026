@@ -62,7 +62,9 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
         </View>
       </View>
 
-      <Text style={[styles.important, { backgroundColor: colors.error, color: colors.white }]}><b>IMPORTANTE:</b> Confira se você não tem compromissos nesse horário!</Text>
+      <Text style={[styles.important, { backgroundColor: colors.error, color: colors.white }]}>
+        <Text style={{ fontWeight: 'bold' }}>IMPORTANTE:</Text> Confira se você não tem compromissos nesse horário!
+      </Text>
 
       <PrimaryButton title={isAlarmActive ? 'Desativar despertador' : 'Ativar despertador'} onPress={handleToggleAlarm} />
     </View>
