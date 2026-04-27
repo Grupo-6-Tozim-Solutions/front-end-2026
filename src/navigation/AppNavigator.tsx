@@ -35,7 +35,7 @@ export type RootStackParamList = {
     SleepQuality: undefined;
     SleepCoach: undefined;
     DetailedAnalysis: undefined;
-    Insights: undefined;
+    InsightsScreen: undefined; // Updated to match the InsightsScreen key
     WeeklyReport: undefined;
     Profile: undefined;
 };
@@ -149,7 +149,7 @@ const MainStack: React.FC = () => {
                 }}
             />
             <Stack.Screen
-                name="Insights"
+                name="InsightsScreen"
                 component={InsightsScreen}
                 options={{
                     title: 'Insights',

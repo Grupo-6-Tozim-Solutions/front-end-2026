@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     Alert,
     RefreshControl,
+    Button,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
@@ -14,9 +15,11 @@ import { useAppContext } from '../contexts/AppContext';
 import { typography, spacing, borderRadius } from '../styles/theme';
 import { translations } from '../languages/pt';
 import { QualityComparisonChart } from '../components/QualityComparisonChart';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 interface DashboardScreenProps {
-    navigation?: any;
+    navigation: NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 }
 
 interface MenuItem {
@@ -24,7 +27,7 @@ interface MenuItem {
     icon: string;
     title: string;
     description: string;
-    route: string;
+    route: keyof RootStackParamList; // Enforce route matches RootStackParamList keys
     color: string;
     isPrimary?: boolean;
 }
@@ -92,7 +95,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             icon: '💡',
             title: translations.dashboard.insights,
             description: translations.dashboard.insightsDesc,
-            route: 'Insights',
+            route: 'InsightsScreen',
             color: '#EC4899',
         },
         {
@@ -284,6 +287,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
                     </Text>
                 </View>
             )}
+
+            {/* Insights Button */}
+            <Button
+                title="Ver Insights"
+                onPress={() => navigation.navigate('InsightsScreen')}
+            />
         </ScrollView>
     );
 };
@@ -433,5 +442,12 @@ const styles = StyleSheet.create({
     syncStatusText: {
         fontSize: typography.caption,
         flex: 1,
+    },
+    insightsButton: {
+        borderRadius: borderRadius.lg,
+        padding: spacing.lg,
+        marginBottom: spacing.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });
