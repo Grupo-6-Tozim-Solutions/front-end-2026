@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { typography } from '../styles/theme';
@@ -36,6 +36,7 @@ export type RootStackParamList = {
     InsightsScreen: undefined; // Updated to match the InsightsScreen key
     WeeklyReport: undefined;
     Profile: undefined;
+    Alarm: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

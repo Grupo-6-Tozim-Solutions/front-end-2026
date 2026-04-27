@@ -81,7 +81,6 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
                 },
                 {
                     text: translations.common.skip,
-                    onPress: () => handleContinue(),
                     style: 'default',
                 },
             ]
@@ -184,7 +183,7 @@ export const PermissionsScreen: React.FC<PermissionsScreenProps> = ({ navigation
                 />
 
                 <TouchableOpacity
-                    onPress={handleSkip}
+                    onPress={() => navigation?.navigate('Alarm')}
                     disabled={isRequesting}
                     style={styles.secondaryButton}
                 >
