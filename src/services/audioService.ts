@@ -213,7 +213,7 @@ export const audioService = {
       }
 
       const files = await FileSystem.readDirectoryAsync(documentDir);
-      const audioFiles = files.filter((f) => f.endsWith('.wav') || f.endsWith('.m4a'));
+      const audioFiles = files.filter((f: string) => f.endsWith('.wav') || f.endsWith('.m4a'));
 
       let totalSize = 0;
       for (const file of audioFiles) {
@@ -243,7 +243,7 @@ export const audioService = {
       if (!documentDir) return 0;
 
       const files = await FileSystem.readDirectoryAsync(documentDir);
-      const audioFiles = files.filter((f) => f.endsWith('.wav') || f.endsWith('.m4a'));
+      const audioFiles = files.filter((f: string) => f.endsWith('.wav') || f.endsWith('.m4a'));
 
       const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       let deleted = 0;

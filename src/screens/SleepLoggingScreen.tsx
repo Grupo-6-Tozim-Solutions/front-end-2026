@@ -1,470 +1,297 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    Alert,
-    Platform,
-    TouchableOpacity,
-    ActivityIndicator,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import DateTimePicker, {
-    DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { FormInput } from '../components/FormInput';
-import { SliderInput } from '../components/SliderInput';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
-import { typography, spacing, borderRadius } from '../styles/theme';
-import { SleepLog } from '../types/user';
 import { translations } from '../languages/pt';
+import { SleepLog } from '../types/user';
+import { AppIcon, AppScreen, Button, GlassCard, Header, Input } from '../components/ui';
+import { InlineFeedback } from '../components/states';
 
 interface SleepLoggingScreenProps {
-    navigation?: any;
+  navigation?: any;
 }
 
-const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
-};
+const formatDate = (date: Date): string => date.toISOString().split('T')[0];
 
 const formatTime = (date: Date): string => {
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
 };
 
 export const SleepLoggingScreen: React.FC<SleepLoggingScreenProps> = ({ navigation }) => {
-    const { colors } = useTheme();
-    const appContext = useAppContext();
+  const { theme } = useTheme();
+  const appContext = useAppContext();
 
-    // Form state
-    const [date, setDate] = useState<Date>(new Date());
-    const [hoursSlept, setHoursSlept] = useState<string>('');
-    const [bedTimeActual, setBedTimeActual] = useState<Date>(new Date(2000, 0, 1, 23, 0));
-    const [wakeTimeActual, setWakeTimeActual] = useState<Date>(new Date(2000, 0, 1, 7, 0));
-    const [quality, setQuality] = useState<number>(5);
-    const [notes, setNotes] = useState<string>('');
+  const [date, setDate] = useState<Date>(new Date());
+  const [hoursSlept, setHoursSlept] = useState('');
+  const [bedTimeActual, setBedTimeActual] = useState<Date>(new Date(2000, 0, 1, 23, 0));
+  const [wakeTimeActual, setWakeTimeActual] = useState<Date>(new Date(2000, 0, 1, 7, 0));
+  const [quality, setQuality] = useState(5);
+  const [notes, setNotes] = useState('');
 
-    // UI state
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showBedTimePicker, setShowBedTimePicker] = useState(false);
-    const [showWakeTimePicker, setShowWakeTimePicker] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showBedTimePicker, setShowBedTimePicker] = useState(false);
+  const [showWakeTimePicker, setShowWakeTimePicker] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const onDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-        setShowDatePicker(Platform.OS === 'ios');
-        if (selectedDate) setDate(selectedDate);
-    };
+  const qualityLabel = useMemo(() => `${quality}/10`, [quality]);
 
-    const onBedTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-        setShowBedTimePicker(Platform.OS === 'ios');
-        if (selectedDate) setBedTimeActual(selectedDate);
-    };
+  const onDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) setDate(selectedDate);
+  };
 
-    const onWakeTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-        setShowWakeTimePicker(Platform.OS === 'ios');
-        if (selectedDate) setWakeTimeActual(selectedDate);
-    };
+  const onBedTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowBedTimePicker(Platform.OS === 'ios');
+    if (selectedDate) setBedTimeActual(selectedDate);
+  };
 
-    const validate = (): boolean => {
-        if (!hoursSlept.trim()) {
-            Alert.alert(translations.common.validation, translations.sleepLogging.validationHours);
-            return false;
-        }
+  const onWakeTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowWakeTimePicker(Platform.OS === 'ios');
+    if (selectedDate) setWakeTimeActual(selectedDate);
+  };
 
-        const hours = parseFloat(hoursSlept);
-        if (isNaN(hours) || hours < 0 || hours > 24) {
-            Alert.alert(translations.common.validation, translations.sleepLogging.validationHoursRange);
-            return false;
-        }
+  const validate = (): boolean => {
+    if (!hoursSlept.trim()) {
+      Alert.alert(translations.common.validation, translations.sleepLogging.validationHours);
+      return false;
+    }
 
-        return true;
-    };
+    const hours = parseFloat(hoursSlept);
+    if (Number.isNaN(hours) || hours < 0 || hours > 24) {
+      Alert.alert(translations.common.validation, translations.sleepLogging.validationHoursRange);
+      return false;
+    }
 
-    const handleSubmit = async () => {
-        if (!validate()) return;
+    return true;
+  };
 
-        try {
-            setIsSubmitting(true);
+  const handleSubmit = async () => {
+    if (!validate()) return;
 
-            const sleepLog: SleepLog = {
-                date: formatDate(date),
-                hoursSlept,
-                bedTimeActual: formatTime(bedTimeActual),
-                wakeTimeActual: formatTime(wakeTimeActual),
-                quality: quality.toString(),
-                notes: notes.trim() || undefined,
-                timestamp: Date.now(),
-                syncStatus: 'pending',
-            };
+    try {
+      setIsSubmitting(true);
 
-            console.log('[SleepLogging] Submitting:', sleepLog);
+      const sleepLog: SleepLog = {
+        date: formatDate(date),
+        hoursSlept,
+        bedTimeActual: formatTime(bedTimeActual),
+        wakeTimeActual: formatTime(wakeTimeActual),
+        quality: quality.toString(),
+        notes: notes.trim() || undefined,
+        timestamp: Date.now(),
+        syncStatus: 'pending',
+      };
 
-            // Add to context (triggers auto-sync)
-            await appContext.addSleepLog(sleepLog);
+      await appContext.addSleepLog(sleepLog);
 
-            Alert.alert(
-                translations.sleepLogging.success,
-                translations.sleepLogging.successMessage,
-                [
-                    {
-                        text: translations.common.ok,
-                        onPress: () => {
-                            // Reset form
-                            setHoursSlept('');
-                            setNotes('');
-                            setQuality(5);
-                            setDate(new Date());
+      Alert.alert(translations.sleepLogging.success, translations.sleepLogging.successMessage, [
+        {
+          text: translations.common.ok,
+          onPress: () => {
+            setHoursSlept('');
+            setNotes('');
+            setQuality(5);
+            setDate(new Date());
+            navigation?.goBack?.();
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error('[SleepLogging] Error submitting:', error);
+      Alert.alert(translations.common.error, translations.sleepLogging.errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-                            // Navigate back to dashboard
-                            navigation?.goBack();
-                        },
-                    },
-                ]
-            );
-        } catch (error) {
-            console.error('[SleepLogging] Error submitting:', error);
-            Alert.alert(
-                translations.common.error,
-                translations.sleepLogging.errorMessage,
-                [{ text: translations.common.ok }]
-            );
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+  return (
+    <AppScreen scroll>
+      <Header title={translations.sleepLogging.title} subtitle={translations.sleepLogging.subtitle} icon="moonStars" />
 
-    return (
-        <ScrollView
-            style={[styles.container, { backgroundColor: colors.background }]}
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={false}
+      <GlassCard variant="elevated" contentStyle={styles.card}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Data e horários</Text>
+
+        <Pressable
+          style={[styles.pickerButton, { borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}
+          onPress={() => setShowDatePicker(true)}
         >
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.headerEmoji}>😴</Text>
-                <Text style={[styles.title, { color: colors.text }]}>
-                    {translations.sleepLogging.title}
-                </Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    {translations.sleepLogging.subtitle}
-                </Text>
-            </View>
+          <AppIcon name="calendar" color={theme.colors.accent} size={18} />
+          <View>
+            <Text style={[styles.pickerLabel, { color: theme.colors.textMuted }]}>{translations.sleepLogging.sleepDate}</Text>
+            <Text style={[styles.pickerValue, { color: theme.colors.text }]}>{formatDate(date)}</Text>
+          </View>
+        </Pressable>
 
-            {/* Date & Time Section */}
-            <View
+        <Pressable
+          style={[styles.pickerButton, { borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}
+          onPress={() => setShowBedTimePicker(true)}
+        >
+          <AppIcon name="moon" color={theme.colors.accent} size={18} />
+          <View>
+            <Text style={[styles.pickerLabel, { color: theme.colors.textMuted }]}>{translations.sleepLogging.bedtime}</Text>
+            <Text style={[styles.pickerValue, { color: theme.colors.text }]}>{formatTime(bedTimeActual)}</Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          style={[styles.pickerButton, { borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}
+          onPress={() => setShowWakeTimePicker(true)}
+        >
+          <AppIcon name="sun" color={theme.colors.accent} size={18} />
+          <View>
+            <Text style={[styles.pickerLabel, { color: theme.colors.textMuted }]}>{translations.sleepLogging.wakeTime}</Text>
+            <Text style={[styles.pickerValue, { color: theme.colors.text }]}>{formatTime(wakeTimeActual)}</Text>
+          </View>
+        </Pressable>
+
+        {showDatePicker ? <DateTimePicker value={date} mode="date" onChange={onDateChange} /> : null}
+        {showBedTimePicker ? <DateTimePicker value={bedTimeActual} mode="time" is24Hour onChange={onBedTimeChange} /> : null}
+        {showWakeTimePicker ? <DateTimePicker value={wakeTimeActual} mode="time" is24Hour onChange={onWakeTimeChange} /> : null}
+      </GlassCard>
+
+      <GlassCard variant="default" contentStyle={styles.card}>
+        <Input
+          label={translations.sleepLogging.hoursOfSleep}
+          value={hoursSlept}
+          onChangeText={setHoursSlept}
+          placeholder={translations.sleepLogging.placeholder}
+          keyboardType="decimal-pad"
+          icon="clock"
+        />
+
+        <View style={styles.qualityRow}>
+          <Text style={[styles.qualityLabel, { color: theme.colors.textMuted }]}>Qualidade percebida</Text>
+          <Text style={[styles.qualityValue, { color: theme.colors.accent }]}>{qualityLabel}</Text>
+        </View>
+
+        <View style={styles.qualityButtons}>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => {
+            const selected = value === quality;
+            return (
+              <Pressable
+                key={value}
+                onPress={() => setQuality(value)}
                 style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
+                  styles.qualityChip,
+                  {
+                    borderRadius: theme.radius.pill,
+                    borderColor: selected ? theme.colors.accent : theme.colors.border,
+                    backgroundColor: selected ? theme.colors.accentSoft : theme.colors.surface,
+                  },
                 ]}
-            >
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>📅</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        {translations.sleepLogging.dateAndTimes}
-                    </Text>
-                </View>
+              >
+                <Text style={[styles.qualityChipText, { color: selected ? theme.colors.accent : theme.colors.textMuted }]}>{value}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-                {/* Date Picker */}
-                <View style={styles.fieldContainer}>
-                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        {translations.sleepLogging.sleepDate}
-                    </Text>
-                    <TouchableOpacity
-                        style={[
-                            styles.pickerButton,
-                            {
-                                backgroundColor: colors.surfaceElevated,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                        onPress={() => setShowDatePicker(true)}
-                    >
-                        <Text style={styles.pickerIcon}>📆</Text>
-                        <Text style={[styles.pickerText, { color: colors.primary }]}>
-                            {formatDate(date)}
-                        </Text>
-                    </TouchableOpacity>
-                    {showDatePicker && (
-                        <DateTimePicker
-                            value={date}
-                            mode="date"
-                            onChange={onDateChange}
-                        />
-                    )}
-                </View>
+        <Input
+          label={translations.sleepLogging.anyNotes}
+          value={notes}
+          onChangeText={setNotes}
+          placeholder={translations.sleepLogging.notesPlaceholder}
+          multiline
+          icon="note"
+        />
+      </GlassCard>
 
-                {/* Bed Time */}
-                <View style={styles.fieldContainer}>
-                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        {translations.sleepLogging.bedtime}
-                    </Text>
-                    <TouchableOpacity
-                        style={[
-                            styles.pickerButton,
-                            {
-                                backgroundColor: colors.surfaceElevated,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                        onPress={() => setShowBedTimePicker(true)}
-                    >
-                        <Text style={styles.pickerIcon}>🌙</Text>
-                        <Text style={[styles.pickerText, { color: colors.primary }]}>
-                            {formatTime(bedTimeActual)}
-                        </Text>
-                    </TouchableOpacity>
-                    {showBedTimePicker && (
-                        <DateTimePicker
-                            value={bedTimeActual}
-                            mode="time"
-                            is24Hour={true}
-                            onChange={onBedTimeChange}
-                        />
-                    )}
-                </View>
+      <InlineFeedback tone="info" message={translations.sleepLogging.disclaimer} />
 
-                {/* Wake Time */}
-                <View style={styles.fieldContainer}>
-                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                        {translations.sleepLogging.wakeTime}
-                    </Text>
-                    <TouchableOpacity
-                        style={[
-                            styles.pickerButton,
-                            {
-                                backgroundColor: colors.surfaceElevated,
-                                borderColor: colors.border,
-                            },
-                        ]}
-                        onPress={() => setShowWakeTimePicker(true)}
-                    >
-                        <Text style={styles.pickerIcon}>☀️</Text>
-                        <Text style={[styles.pickerText, { color: colors.primary }]}>
-                            {formatTime(wakeTimeActual)}
-                        </Text>
-                    </TouchableOpacity>
-                    {showWakeTimePicker && (
-                        <DateTimePicker
-                            value={wakeTimeActual}
-                            mode="time"
-                            is24Hour={true}
-                            onChange={onWakeTimeChange}
-                        />
-                    )}
-                </View>
-            </View>
-
-            {/* Sleep Duration Section */}
-            <View
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
-                ]}
-            >
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>⏱️</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        {translations.sleepLogging.sleepDuration}
-                    </Text>
-                </View>
-
-                <FormInput
-                    label={translations.sleepLogging.hoursOfSleep}
-                    value={hoursSlept}
-                    onChange={setHoursSlept}
-                    placeholder={translations.sleepLogging.placeholder}
-                    keyboardType="decimal-pad"
-                />
-            </View>
-
-            {/* Quality Section */}
-            <View
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
-                ]}
-            >
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>⭐</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        {translations.sleepLogging.sleepQuality}
-                    </Text>
-                </View>
-
-                <SliderInput
-                    label={translations.sleepLogging.howWasQuality}
-                    value={quality}
-                    min={1}
-                    max={10}
-                    onChange={(v) => setQuality(Math.round(v))}
-                    minLabel={translations.sleepLogging.veryPoor}
-                    maxLabel={translations.sleepLogging.excellent}
-                />
-            </View>
-
-            {/* Notes Section */}
-            <View
-                style={[
-                    styles.card,
-                    {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.cardBorder,
-                        shadowColor: colors.shadow,
-                    },
-                ]}
-            >
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionEmoji}>📝</Text>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        {translations.sleepLogging.notes}
-                    </Text>
-                </View>
-
-                <FormInput
-                    label={translations.sleepLogging.anyNotes}
-                    value={notes}
-                    onChange={setNotes}
-                    placeholder={translations.sleepLogging.notesPlaceholder}
-                />
-            </View>
-
-            {/* Submit */}
-            <View style={styles.submitSection}>
-                {isSubmitting ? (
-                    <View style={styles.submittingContainer}>
-                        <ActivityIndicator size="large" color={colors.primary} />
-                        <Text style={[styles.submittingText, { color: colors.textSecondary }]}>
-                            {translations.sleepLogging.saving}
-                        </Text>
-                    </View>
-                ) : (
-                    <>
-                        <PrimaryButton
-                            title={translations.sleepLogging.saveButton}
-                            onPress={handleSubmit}
-                            style={styles.submitButton}
-                        />
-                        <Text style={[styles.disclaimer, { color: colors.textLight }]}>
-                            {translations.sleepLogging.disclaimer}
-                        </Text>
-                    </>
-                )}
-            </View>
-        </ScrollView>
-    );
+      <View style={styles.footer}>
+        <Button
+          title={translations.sleepLogging.saveButton}
+          onPress={handleSubmit}
+          loading={isSubmitting}
+          icon="check"
+          iconPosition="right"
+        />
+        {isSubmitting ? (
+          <View style={styles.loadingLine}>
+            <ActivityIndicator size="small" color={theme.colors.accent} />
+            <Text style={[styles.loadingText, { color: theme.colors.textMuted }]}>{translations.sleepLogging.saving}</Text>
+          </View>
+        ) : null}
+      </View>
+    </AppScreen>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    contentContainer: {
-        padding: spacing.lg,
-        paddingBottom: spacing.xxl,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: spacing.lg,
-    },
-    headerEmoji: {
-        fontSize: 36,
-        marginBottom: spacing.sm,
-    },
-    title: {
-        fontSize: typography.title - 4,
-        fontWeight: '800',
-        textAlign: 'center',
-        marginBottom: spacing.xs,
-    },
-    subtitle: {
-        fontSize: typography.caption,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-    card: {
-        borderRadius: borderRadius.lg,
-        borderWidth: 1,
-        padding: spacing.lg,
-        marginBottom: spacing.md,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.lg,
-        gap: spacing.sm,
-    },
-    sectionEmoji: {
-        fontSize: 20,
-    },
-    sectionTitle: {
-        fontSize: typography.subtitle,
-        fontWeight: '700',
-    },
-    fieldContainer: {
-        marginBottom: spacing.lg,
-    },
-    fieldLabel: {
-        fontSize: typography.caption,
-        fontWeight: '600',
-        marginBottom: spacing.sm,
-        letterSpacing: 0.3,
-    },
-    pickerButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderRadius: borderRadius.sm,
-        paddingVertical: spacing.sm + 4,
-        paddingHorizontal: spacing.md,
-        gap: spacing.sm,
-    },
-    pickerIcon: {
-        fontSize: 20,
-    },
-    pickerText: {
-        fontSize: typography.body,
-        fontWeight: '600',
-        flex: 1,
-    },
-    submitSection: {
-        marginTop: spacing.md,
-        alignItems: 'center',
-    },
-    submittingContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: spacing.lg,
-    },
-    submittingText: {
-        fontSize: typography.body,
-        marginTop: spacing.md,
-    },
-    submitButton: {
-        width: '100%',
-    },
-    disclaimer: {
-        fontSize: typography.small,
-        textAlign: 'center',
-        marginTop: spacing.md,
-        lineHeight: 18,
-    },
+  card: {
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  pickerButton: {
+    alignItems: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 56,
+    paddingHorizontal: 14,
+  },
+  pickerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pickerValue: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  qualityRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  qualityLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  qualityValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  qualityButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  qualityChip: {
+    alignItems: 'center',
+    borderWidth: 1,
+    height: 34,
+    justifyContent: 'center',
+    minWidth: 34,
+    paddingHorizontal: 8,
+  },
+  qualityChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  footer: {
+    gap: 10,
+    paddingBottom: 24,
+  },
+  loadingLine: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+  },
 });
