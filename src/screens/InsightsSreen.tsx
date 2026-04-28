@@ -1,15 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Button } from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
-import { RootStackParamList } from '../navigation/AppNavigator';
 
 interface InsightsScreenProps {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'InsightsScreen'>;
+  navigation?: any;
 }
 
 export const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) => {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
 
   // Mocked data
   const sleepComparison = -15; // Example: -15% worse than average
@@ -18,24 +16,22 @@ export const InsightsScreen: React.FC<InsightsScreenProps> = ({ navigation }) =>
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Insights</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Insights</Text>
       </View>
 
       <View style={styles.insightBox}>
-        <Text style={[styles.insightText, { color: colors.text }]}>Seu tempo de sono está {sleepComparison}% pior que a média.</Text>
+        <Text style={[styles.insightText, { color: theme.colors.text }]}>Seu tempo de sono está {sleepComparison}% pior que a média.</Text>
       </View>
 
       <View style={styles.insightBox}>
-        <Text style={[styles.insightText, { color: colors.text }]}>Você usou o celular {phoneUsageAfterMidnight} vezes após as 00:00.</Text>
-        <Text style={[styles.insightText, { color: colors.text }]}>Impacto no sono: {phoneImpact}.</Text>
+        <Text style={[styles.insightText, { color: theme.colors.text }]}>Você usou o celular {phoneUsageAfterMidnight} vezes após as 00:00.</Text>
+        <Text style={[styles.insightText, { color: theme.colors.text }]}>Impacto no sono: {phoneImpact}.</Text>
       </View>
-
-      <Button title="Voltar" onPress={() => navigation.goBack()} />
     </ScrollView>
   );
 };

@@ -1,24 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
 import { View, Text, StyleSheet } from 'react-native';
-import { typography } from '../styles/theme';
-import { PrimaryButton } from '../components/PrimaryButton';
 import { useTheme } from '../contexts/ThemeContext';
+import { Button } from '../components/ui';
 
 interface AlarmScreenProps {
-  navigation?: NativeStackNavigationProp<RootStackParamList, 'Alarm'>;
+  navigation?: any;
 }
 
 const IDEAL_SLEEP = 8;
 const MAX_COMPENSATION = 2;
 
-export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
+export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) => {
+  const { theme } = useTheme();
   const mockedHorasSemana = [7.5, 8.0, 6.5, 7.0, 7.25];
   const mockHoraDormir = '23:00';
   const [resultado, setResultado] = useState<number | null>(null);
   const [isAlarmActive, setIsAlarmActive] = useState(false);
-  const { colors } = useTheme();
 
   useEffect(() => {
     const horasFinal = calcularSonoFimDeSemana(mockedHorasSemana);
@@ -40,33 +37,37 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) =>{
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }] }>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text style={[styles.time, { color: theme.colors.accent }]}>08:20</Text>
 
-      <Text style={[styles.time, { color: colors.primaryDark } ]}>08:20</Text>
+      <Text style={[styles.label, { color: theme.colors.text }]}>9h 20min de sono recomendado</Text>
 
-      <Text style={[styles.label, { color: colors.textSecondary } ]}>9h 20min de sono recomendado</Text>
-
-      <Text style={[styles.description, { color: colors.textSecondary }]}>
+      <Text style={[styles.description, { color: theme.colors.textMuted }]}>
         O app calcula seu despertar com base no seu histórico de sono, horário médio de dormir e necessidade de recuperação.
       </Text>
 
       <View style={styles.cardContainer}>
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }] }>
-          <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>Dorme em média</Text>
-          <Text style={[styles.cardValue, { color: colors.primaryDark }]}>23:00</Text>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Text style={[styles.cardTitle, { color: theme.colors.textMuted }]}>Dorme em média</Text>
+          <Text style={[styles.cardValue, { color: theme.colors.accent }]}>23:00</Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }] }>
-          <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>Déficit</Text>
-          <Text style={[styles.cardValue, { color: colors.primaryDark }]}>1h 20min</Text>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Text style={[styles.cardTitle, { color: theme.colors.textMuted }]}>Déficit</Text>
+          <Text style={[styles.cardValue, { color: theme.colors.accent }]}>1h 20min</Text>
         </View>
       </View>
 
-      <Text style={[styles.important, { backgroundColor: colors.error, color: colors.white }]}>
-        <Text style={{ fontWeight: 'bold' }}>IMPORTANTE:</Text> Confira se você não tem compromissos nesse horário!
-      </Text>
+      <View style={[styles.important, { backgroundColor: theme.colors.warning }]}>
+        <Text style={[styles.importantText, { color: theme.colors.text }]}>
+          <Text style={{ fontWeight: 'bold' }}>IMPORTANTE:</Text> Confira se você não tem compromissos nesse horário!
+        </Text>
+      </View>
 
-      <PrimaryButton title={isAlarmActive ? 'Desativar despertador' : 'Ativar despertador'} onPress={handleToggleAlarm} />
+      <Button
+        title={isAlarmActive ? 'Desativar despertador' : 'Ativar despertador'}
+        onPress={handleToggleAlarm}
+      />
     </View>
   );
 };
@@ -77,20 +78,16 @@ const styles = StyleSheet.create({
     padding: 20,
     justifyContent: 'space-evenly',
   },
-  title: {
-    fontSize: typography.subtitle,
-    marginBottom: 10,
-  },
   cardContainer: {
-    flexDirection: 'row', 
+    flexDirection: 'row',
     justifyContent: 'space-between',
   },
   card: {
-    flex: 1, // ocupa metade da largura
-    backgroundColor: '#eee',
+    flex: 1,
     padding: 12,
     borderRadius: 10,
     marginHorizontal: 5,
+    borderWidth: 1,
   },
   cardTitle: {
     fontSize: 16,
@@ -108,28 +105,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   label: {
-    fontSize: typography.subtitle,
-  },
-  description: {
-    fontSize: 18,
-  },
-  important: {
-    fontSize: 17,
-    backgroundColor: '#ec5353',
-    color: '#2B0000',
-    padding: 5,
-    borderRadius: 10
-  },
-  alarmTime: {
-    marginTop: 15,
     fontSize: 16,
     fontWeight: '600',
-    color: '#007AFF',
-    textAlign: 'center',
   },
-  mockValue: {
-    marginTop: 5,
-    fontSize: 18,
-    fontWeight: '600',
+  description: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  important: {
+    fontSize: 14,
+    padding: 12,
+    borderRadius: 10,
+    marginVertical: 10,
+  },
+  importantText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
 });
