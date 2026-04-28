@@ -56,6 +56,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
   const shortcuts = useMemo<ShortcutItem[]>(
     () => [
       {
+        id: 'logging',
+        icon: 'chart',
+        title: translations.dashboard.registerSleep,
+        description: translations.dashboard.registerSleepDesc,
+        action: () => navigateTab('LoggingTab'),
+      },
+      {
         id: 'quality',
         icon: 'chart',
         title: translations.dashboard.sleepQuality,
@@ -63,9 +70,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
         action: () => navigateTab('QualityTab'),
       },
       {
+        id: 'alarm',
+        icon: 'list',
+        title: translations.dashboard.smartAlarm,
+        description: translations.dashboard.smartAlarmDesc,
+        action: () => navigation?.navigate?.('Alarm'),
+      },
+      {
         id: 'analysis',
         icon: 'list',
-        title: translations.dashboard.detailedAnalysis,
+        title: 'Análise Detalhada',
         description: translations.dashboard.detailedAnalysisDesc,
         action: () => navigation?.navigate?.('DetailedAnalysis'),
       },

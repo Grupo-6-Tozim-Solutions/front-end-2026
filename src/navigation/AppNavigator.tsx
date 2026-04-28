@@ -16,6 +16,7 @@ import { SleepLoggingScreen } from '../screens/SleepLoggingScreen';
 import { SleepQualityScreen } from '../screens/SleepQualityScreen';
 import { SleepCoachScreen } from '../screens/SleepCoachScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { AlarmScreen } from '../screens/AlarmScreen';
 import { DetailedAnalysisScreen, InsightsScreen } from '../screens/StubScreens';
 import { WeeklyReportScreen } from '../screens/WeeklyReportScreen';
 
@@ -30,6 +31,7 @@ export type HomeStackParamList = {
   DetailedAnalysis: undefined;
   Insights: undefined;
   WeeklyReport: undefined;
+  Alarm: undefined;
 };
 
 export type LoggingStackParamList = {
@@ -92,6 +94,7 @@ const HomeNavigator: React.FC = () => {
       <HomeStack.Screen name="DetailedAnalysis" component={DetailedAnalysisScreen} />
       <HomeStack.Screen name="Insights" component={InsightsScreen} />
       <HomeStack.Screen name="WeeklyReport" component={WeeklyReportScreen} />
+      <HomeStack.Screen name="Alarm" component={AlarmScreen} />
     </HomeStack.Navigator>
   );
 };
