@@ -44,6 +44,8 @@ export const translations = {
     sleepCoachDesc: 'Converse com o assistente para ajustar hábitos.',
     weeklyReport: 'Relatório semanal',
     weeklyReportDesc: 'Entenda sua evolução na última semana.',
+    smartAlarm: 'Alarme Inteligente',
+    smartAlarmDesc: 'Receba horário de despertar ideal baseado em seu histórico de sono.',
     profile: 'Perfil',
     profileDesc: 'Gerencie dados e preferências do app.',
     hoursSlept: 'horas',
