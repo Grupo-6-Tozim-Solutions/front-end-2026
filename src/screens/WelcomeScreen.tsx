@@ -1,170 +1,101 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { useTheme } from '../contexts/ThemeContext';
-import { typography, spacing } from '../styles/theme';
+import { OnboardingStackParamList } from '../navigation/AppNavigator';
 import { translations } from '../languages/pt';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { AppScreen, Button, GlassCard, Header } from '../components/ui';
+import { useTheme } from '../contexts/ThemeContext';
 
 type WelcomeScreenProps = {
-    navigation: NativeStackNavigationProp<RootStackParamList, 'Welcome'>;
+  navigation: NativeStackNavigationProp<OnboardingStackParamList, 'Welcome'>;
 };
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
-    const { isDark, colors, toggleTheme } = useTheme();
+  const { theme } = useTheme();
 
-    return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <StatusBar
-                barStyle={isDark ? 'light-content' : 'dark-content'}
-                backgroundColor={colors.background}
+  return (
+    <AppScreen>
+      <View style={styles.layout}>
+        <Header
+          title={translations.welcome.appName}
+          subtitle="Acompanhamento inteligente para noites mais consistentes"
+          icon="spark"
+          style={styles.header}
+        />
+
+        <GlassCard variant="elevated" contentStyle={styles.heroCard}>
+          <View style={styles.logoWrap}>
+            <Image
+              source={require('../../assets/logo-completa.png')}
+              resizeMode="contain"
+              style={styles.logo}
             />
+          </View>
+          <Text style={[styles.heroTitle, { color: theme.colors.text }]}>{translations.welcome.title}</Text>
+          <Text style={[styles.heroDescription, { color: theme.colors.textMuted }]}>{translations.welcome.description}</Text>
+        </GlassCard>
 
-            {/* Theme Toggle */}
-            <TouchableOpacity
-                style={styles.themeToggle}
-                onPress={toggleTheme}
-                activeOpacity={0.7}
-                accessibilityLabel={isDark ? translations.welcome.switchToLight : translations.welcome.switchToDark}
-            >
-                <Text style={styles.toggleIcon}>{isDark ? '☀️' : '🌙'}</Text>
-            </TouchableOpacity>
+        <GlassCard variant="subtle" contentStyle={styles.highlightCard}>
+          <Text style={[styles.highlightTitle, { color: theme.colors.text }]}>O que você ganha nesta jornada</Text>
+          <Text style={[styles.highlightText, { color: theme.colors.textMuted }]}>Painel com visão diária, recomendações baseadas em padrão de sono e acompanhamento em tempo real.</Text>
+        </GlassCard>
 
-            <View style={styles.content}>
-                {/* Logo */}
-                <View style={[styles.logoContainer, { backgroundColor: colors.primary + '15' }]}>
-                    <Image
-                        source={require('../../assets/logo-completa.png')}
-                        style={styles.logoImage}
-                        resizeMode="contain"
-                    />
-                </View>
-
-                {/* Decorative stars */}
-                <View style={styles.starsRow}>
-                    <Text style={[styles.star, { color: colors.highlight }]}>✦</Text>
-                    <Text style={[styles.starSmall, { color: colors.accent }]}>✦</Text>
-                    <Text style={[styles.star, { color: colors.highlight }]}>✦</Text>
-                </View>
-
-                {/* Titles */}
-                <Text style={[styles.appName, { color: colors.primary }]}>{translations.welcome.appName}</Text>
-                <Text style={[styles.title, { color: colors.text }]}>
-                    {translations.welcome.title}
-                </Text>
-                <Text style={[styles.description, { color: colors.textSecondary }]}>
-                    {translations.welcome.description}
-                </Text>
-            </View>
-
-            {/* Decorative dots */}
-            <View style={styles.dots}>
-                <View style={[styles.dot, styles.dotActive, { backgroundColor: colors.primary }]} />
-                <View style={[styles.dot, { backgroundColor: colors.accentLight }]} />
-                <View style={[styles.dot, { backgroundColor: colors.border }]} />
-            </View>
-
-            {/* CTA */}
-            <View style={styles.footer}>
-                <PrimaryButton
-                    title={translations.welcome.startButton}
-                    onPress={() => navigation.navigate('Permissions')}
-                    style={styles.button}
-                />
-            </View>
+        <View style={styles.footer}>
+          <Button
+            title={translations.welcome.startButton}
+            onPress={() => navigation.navigate('Permissions')}
+            icon="arrowRight"
+            iconPosition="right"
+          />
         </View>
-    );
+      </View>
+    </AppScreen>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        paddingHorizontal: spacing.lg,
-    },
-    themeToggle: {
-        position: 'absolute',
-        top: 54,
-        right: spacing.lg,
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    toggleIcon: {
-        fontSize: 24,
-    },
-    content: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    logoContainer: {
-        width: 180,
-        height: 180,
-        borderRadius: 90,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: spacing.lg,
-    },
-    logoImage: {
-        width: 160,
-        height: 160,
-    },
-    starsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        marginBottom: spacing.md,
-    },
-    star: {
-        fontSize: 16,
-    },
-    starSmall: {
-        fontSize: 12,
-    },
-    appName: {
-        fontSize: typography.caption,
-        fontWeight: '600',
-        letterSpacing: 3,
-        textTransform: 'uppercase',
-        marginBottom: spacing.sm,
-    },
-    title: {
-        fontSize: typography.title + 4,
-        fontWeight: '800',
-        textAlign: 'center',
-        lineHeight: 40,
-        marginBottom: spacing.md,
-    },
-    description: {
-        fontSize: typography.body,
-        textAlign: 'center',
-        lineHeight: 24,
-        paddingHorizontal: spacing.md,
-    },
-    dots: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: spacing.xl,
-        gap: spacing.sm,
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-    },
-    dotActive: {
-        width: 24,
-        borderRadius: 4,
-    },
-    footer: {
-        paddingBottom: spacing.xxl,
-    },
-    button: {
-        width: '100%',
-    },
+  layout: {
+    flex: 1,
+    gap: 16,
+    paddingBottom: 20,
+    paddingTop: 8,
+  },
+  header: {
+    marginBottom: 4,
+  },
+  heroCard: {
+    gap: 14,
+    paddingVertical: 20,
+  },
+  logoWrap: {
+    alignItems: 'center',
+  },
+  logo: {
+    height: 92,
+    width: 188,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    lineHeight: 34,
+    textAlign: 'left',
+  },
+  heroDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  highlightCard: {
+    gap: 6,
+  },
+  highlightTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  highlightText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  footer: {
+    marginTop: 'auto',
+  },
 });

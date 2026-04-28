@@ -123,9 +123,9 @@ export const permissionsService = {
       Este app funciona com dados de entrada manual do usuário.
       
       Permissões Opcionais (para recursos futuros):
-      - 📸 Câmera: Para fotografar diário de sono
-      - 📍 Localização: Para rastrear padrões por local
-      - 🏥 Dados de Saúde: Para integração com Apple Health / Google Fit
+      - Câmera: Para fotografar diário de sono
+      - Localização: Para rastrear padrões por local
+      - Dados de saúde: Para integração com Apple Health / Google Fit
     `;
   },
 };

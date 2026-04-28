@@ -1,732 +1,526 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TextInput,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-    Dimensions,
-    Alert,
-    ActivityIndicator,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import * as FileSystemLegacy from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
-import { typography, spacing, borderRadius } from '../styles/theme';
-import { translations } from '../languages/pt';
-import { CoachMessage } from '../types/coach';
 import { audioService } from '../services/audioService';
 import { permissionsService } from '../services/permissions';
-import { processChat, sendChatMessage, sendChatAudio } from '../services/chatService';
+import { sendChatAudio, sendChatMessage } from '../services/chatService';
+import { CoachMessage } from '../types/coach';
+import { AppIcon, AppScreen, Button, GlassCard, Header } from '../components/ui';
+import { EmptyState, ErrorState, InlineFeedback } from '../components/states';
 
 interface SleepCoachScreenProps {
-    navigation?: any;
+  navigation?: any;
 }
 
-const { height } = Dimensions.get('window');
+export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
+  const { theme } = useTheme();
+  const appContext = useAppContext();
 
-export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = ({ navigation }) => {
-    const { colors } = useTheme();
-    const appContext = useAppContext();
-    const [messages, setMessages] = useState<CoachMessage[]>([
-        {
-            id: '1',
-            role: 'coach',
-            content: 'Olá! 👋 Sou seu assistente de sono. Estou aqui para ajudar você a melhorar a qualidade do seu sono com dicas personalizadas. Como posso te ajudar hoje?',
-            timestamp: Date.now(),
+  const [messages, setMessages] = useState<CoachMessage[]>([
+    {
+      id: 'initial-coach-message',
+      role: 'coach',
+      content: 'Olá. Sou seu coach de sono e posso ajudar com ajustes de rotina baseados nos seus registros.',
+      timestamp: Date.now(),
+      type: 'text',
+    },
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
+
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const listRef = useRef<FlatList<CoachMessage>>(null);
+
+  const baseContextHint = useMemo(() => {
+    const stats = appContext.userQualityStats();
+    return `Contexto atual: média ${stats.averageQuality.toFixed(1)}/10, sequência ${stats.currentStreak} dia(s), registros ${appContext.sleepLogs.length}.`;
+  }, [appContext]);
+
+  useEffect(() => {
+    if (isRecording) {
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration((previous) => previous + 100);
+      }, 100);
+    } else if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+
+    return () => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    };
+  }, [isRecording]);
+
+  useEffect(() => {
+    playbackTimerRef.current = setInterval(() => {
+      if (!playingAudioId) return;
+      const state = audioService.getPlaybackState(playingAudioId);
+      if (!state) return;
+
+      setAudioProgress((previous) => ({ ...previous, [playingAudioId]: state.currentTime }));
+      if (!state.isPlaying && state.currentTime >= state.duration) {
+        setPlayingAudioId(null);
+      }
+    }, 120);
+
+    return () => {
+      if (playbackTimerRef.current) {
+        clearInterval(playbackTimerRef.current);
+      }
+    };
+  }, [playingAudioId]);
+
+  useEffect(() => {
+    return () => {
+      audioService.clearPlaybackState().catch((error) => {
+        console.error('[SleepCoach] Error clearing playback state:', error);
+      });
+    };
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    }, 120);
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  const appendMessage = useCallback((message: CoachMessage) => {
+    setMessages((previous) => [...previous, message]);
+  }, []);
+
+  const handleSendMessage = useCallback(async () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed || isLoading) return;
+
+    const userMessage: CoachMessage = {
+      id: `msg-user-${Date.now()}`,
+      role: 'user',
+      content: trimmed,
+      timestamp: Date.now(),
+      type: 'text',
+    };
+
+    appendMessage(userMessage);
+    setInputValue('');
+    setIsLoading(true);
+    setChatError(null);
+
+    try {
+      const response = await sendChatMessage(`${trimmed}\n\n${baseContextHint}`);
+      appendMessage({
+        id: `msg-coach-${Date.now()}`,
+        role: 'coach',
+        content: response.ai_response,
+        timestamp: Date.now(),
+        type: 'text',
+      });
+    } catch (error: any) {
+      console.error('[SleepCoach] Error sending message:', error);
+      setChatError(error.message || 'Falha ao enviar mensagem.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [appendMessage, baseContextHint, inputValue, isLoading]);
+
+  const handleStartRecording = useCallback(async () => {
+    try {
+      const microphoneStatus = await permissionsService.checkMicrophonePermissionStatus();
+      if (microphoneStatus === 'denied') {
+        Alert.alert('Permissão de microfone', 'Ative o microfone nas configurações do app para gravar áudio.');
+        return;
+      }
+
+      if (microphoneStatus === 'unknown') {
+        const requested = await permissionsService.requestMicrophonePermission();
+        if (requested !== 'granted') {
+          Alert.alert('Permissão de microfone', 'Não foi possível iniciar a gravação sem acesso ao microfone.');
+          return;
+        }
+      }
+
+      const started = await audioService.startRecording();
+      if (!started) {
+        Alert.alert('Erro', 'Falha ao iniciar gravação.');
+        return;
+      }
+
+      setRecordingDuration(0);
+      setIsRecording(true);
+      setChatError(null);
+    } catch (error) {
+      console.error('[SleepCoach] Error starting recording:', error);
+      Alert.alert('Erro', 'Não foi possível iniciar a gravação.');
+    }
+  }, []);
+
+  const handleSendAudio = useCallback(
+    async (recording: NonNullable<Awaited<ReturnType<typeof audioService.stopRecording>>>) => {
+      const userMessage: CoachMessage = {
+        id: `msg-audio-${Date.now()}`,
+        role: 'user',
+        content: `Mensagem de áudio (${audioService.formatDuration(recording.duration)})`,
+        timestamp: Date.now(),
+        audio: {
+          id: recording.id,
+          uri: recording.uri,
+          duration: recording.duration,
         },
-    ]);
-    const [inputValue, setInputValue] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [isRecording, setIsRecording] = useState(false);
-    const [recordingDuration, setRecordingDuration] = useState(0);
-    const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
-    const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
-    const scrollViewRef = useRef<ScrollView>(null);
-    const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const playbackUpdateRef = useRef<ReturnType<typeof setInterval> | null>(null);
+        type: 'audio',
+      };
 
-    useEffect(() => {
-        // Scroll to bottom when new messages arrive
-        setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-    }, [messages]);
+      appendMessage(userMessage);
+      setIsLoading(true);
+      setChatError(null);
 
-    useEffect(() => {
-        // Atualizar duração da gravação a cada 100ms
-        if (isRecording) {
-            recordingTimerRef.current = setInterval(() => {
-                setRecordingDuration((prev) => prev + 100);
-            }, 100);
-        } else {
-            if (recordingTimerRef.current) {
-                clearInterval(recordingTimerRef.current);
-            }
+      try {
+        const audioBase64 = await FileSystem.readAsStringAsync(recording.uri, { encoding: 'base64' });
+        const response = await sendChatAudio(audioBase64, 'audio.m4a');
+
+        appendMessage({
+          id: `msg-coach-audio-${Date.now()}`,
+          role: 'coach',
+          content: response.ai_response,
+          timestamp: Date.now(),
+          type: 'text',
+        });
+      } catch (error: any) {
+        console.error('[SleepCoach] Error sending audio:', error);
+        setChatError(error.message || 'Falha ao enviar áudio.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [appendMessage],
+  );
+
+  const handleStopRecording = useCallback(async () => {
+    try {
+      setIsRecording(false);
+      const recording = await audioService.stopRecording();
+      if (!recording) return;
+
+      if (!audioService.isValidAudio(recording)) {
+        await audioService.deleteAudio(recording.uri);
+        Alert.alert('Áudio curto', 'Grave pelo menos 1 segundo para enviar.');
+        return;
+      }
+
+      await handleSendAudio(recording);
+    } catch (error) {
+      console.error('[SleepCoach] Error stopping recording:', error);
+      Alert.alert('Erro', 'Falha ao finalizar gravação.');
+    }
+  }, [handleSendAudio]);
+
+  const handleCancelRecording = useCallback(async () => {
+    try {
+      await audioService.cancelRecording();
+      setIsRecording(false);
+      setRecordingDuration(0);
+    } catch (error) {
+      console.error('[SleepCoach] Error canceling recording:', error);
+    }
+  }, []);
+
+  const handleToggleAudioPlayback = useCallback(
+    async (message: CoachMessage) => {
+      if (!message.audio) return;
+
+      try {
+        if (playingAudioId === message.audio.id) {
+          await audioService.pauseAudio(message.audio.id);
+          setPlayingAudioId(null);
+          return;
         }
 
-        return () => {
-            if (recordingTimerRef.current) {
-                clearInterval(recordingTimerRef.current);
-            }
-        };
-    }, [isRecording]);
-
-    useEffect(() => {
-        // Atualizar progresso de playback a cada 100ms
-        playbackUpdateRef.current = setInterval(() => {
-            if (playingAudioId) {
-                const state = audioService.getPlaybackState(playingAudioId);
-                if (state) {
-                    setAudioProgress((prev) => ({
-                        ...prev,
-                        [playingAudioId]: state.currentTime,
-                    }));
-
-                    // Para reprodução se chegou ao fim
-                    if (state.currentTime >= state.duration && !state.isPlaying) {
-                        setPlayingAudioId(null);
-                    }
-                }
-            }
-        }, 100);
-
-        return () => {
-            if (playbackUpdateRef.current) {
-                clearInterval(playbackUpdateRef.current);
-            }
-        };
-    }, [playingAudioId]);
-
-    useEffect(() => {
-        // Cleanup ao desmontar
-        return () => {
-            // Chamar clearPlaybackState de forma assíncrona
-            audioService.clearPlaybackState().catch((error) => {
-                console.error('[SleepCoach] Error clearing playback state:', error);
-            });
-        };
-    }, []);
-
-    const handleStartRecording = async () => {
-        try {
-            // Verificar permissão de microfone
-            const microphoneStatus = await permissionsService.checkMicrophonePermissionStatus();
-            
-            if (microphoneStatus === 'denied') {
-                Alert.alert(
-                    'Permissão de Microfone Negada',
-                    'Para gravar áudio, é necessário permitir o acesso ao microfone. Por favor, ative a permissão nas configurações do aplicativo.',
-                    [
-                        {
-                            text: 'OK',
-                            onPress: () => { },
-                        },
-                    ]
-                );
-                return;
-            }
-
-            // Se desconhecido, solicitar permissão
-            if (microphoneStatus === 'unknown') {
-                const permStatus = await permissionsService.requestMicrophonePermission();
-                if (permStatus === 'denied') {
-                    Alert.alert(
-                        'Permissão de Microfone Negada',
-                        'Sem a permissão de microfone, não é possível gravar áudio.'
-                    );
-                    return;
-                }
-            }
-
-            const success = await audioService.startRecording();
-            if (success) {
-                setIsRecording(true);
-                setRecordingDuration(0);
-                console.log('[SleepCoach] Recording started');
-            } else {
-                Alert.alert('Erro', 'Não foi possível iniciar a gravação de áudio.');
-            }
-        } catch (error) {
-            console.error('[SleepCoach] Error starting recording:', error);
-            Alert.alert('Erro', 'Erro ao iniciar gravação.');
+        const success = await audioService.playAudio(message.audio.id, message.audio.uri, message.audio.duration);
+        if (success) {
+          setPlayingAudioId(message.audio.id);
+          setAudioProgress((previous) => ({ ...previous, [message.audio!.id]: 0 }));
         }
-    };
+      } catch (error) {
+        console.error('[SleepCoach] Error playing audio:', error);
+      }
+    },
+    [playingAudioId],
+  );
 
-    const handleStopRecording = async () => {
-        try {
-            setIsRecording(false);
-            const recording = await audioService.stopRecording();
+  const renderMessage = useCallback(
+    ({ item }: { item: CoachMessage }) => {
+      const isCoach = item.role === 'coach';
+      const hasAudio = Boolean(item.audio);
+      const progressValue = item.audio ? audioProgress[item.audio.id] || 0 : 0;
+      const progressWidth: `${number}%` = item.audio && item.audio.duration
+        ? `${Math.min((progressValue / item.audio.duration) * 100, 100)}%`
+        : '0%';
 
-            if (recording) {
-                // Validar áudio
-                if (!audioService.isValidAudio(recording)) {
-                    await audioService.deleteAudio(recording.uri);
-                    Alert.alert('Áudio muito curto', 'Grave pelo menos 1 segundo de áudio.');
-                    return;
-                }
-
-                // Enviar áudio como mensagem
-                await handleSendAudio(recording);
-            }
-        } catch (error) {
-            console.error('[SleepCoach] Error stopping recording:', error);
-            Alert.alert('Erro', 'Erro ao finalizar gravação.');
-        }
-    };
-
-    const handleCancelRecording = async () => {
-        try {
-            await audioService.cancelRecording();
-            setIsRecording(false);
-            setRecordingDuration(0);
-        } catch (error) {
-            console.error('[SleepCoach] Error canceling recording:', error);
-        }
-    };
-
-    const handlePlayAudio = async (audioId: string, uri: string, duration: number) => {
-        try {
-            // Se o mesmo áudio está tocando, pausa
-            if (playingAudioId === audioId) {
-                await audioService.pauseAudio(audioId);
-                setPlayingAudioId(null);
-                return;
-            }
-
-            // Se outro áudio está tocando, para ele
-            if (playingAudioId) {
-                await audioService.stopAudio(playingAudioId);
-            }
-
-            // Inicia playback do novo áudio
-            const success = await audioService.playAudio(audioId, uri, duration);
-            if (success) {
-                setPlayingAudioId(audioId);
-                setAudioProgress((prev) => ({ ...prev, [audioId]: 0 }));
-            }
-        } catch (error) {
-            console.error('[SleepCoach] Error playing audio:', error);
-            Alert.alert('Erro', 'Erro ao reproduzir áudio.');
-        }
-    };
-
-    const handleStopPlayback = async (audioId: string) => {
-        try {
-            await audioService.stopAudio(audioId);
-            setPlayingAudioId(null);
-            setAudioProgress((prev) => ({ ...prev, [audioId]: 0 }));
-        } catch (error) {
-            console.error('[SleepCoach] Error stopping playback:', error);
-        }
-    };
-
-    const handleSendAudio = async (recording: any) => {
-        try {
-            console.log('[SleepCoach] Audio recording data:', {
-                id: recording.id,
-                uri: recording.uri,
-                duration: recording.duration,
-            });
-
-            // Criar mensagem do usuário com áudio
-            const userMessage: CoachMessage = {
-                id: `msg_${Date.now()}`,
-                role: 'user',
-                content: `[Áudio: ${audioService.formatDuration(recording.duration)}]`,
-                timestamp: Date.now(),
-                audio: {
-                    id: recording.id,
-                    uri: recording.uri,
-                    duration: recording.duration,
-                },
-                type: 'audio',
-            };
-
-            setMessages((prev) => [...prev, userMessage]);
-            setIsLoading(true);
-
-            try {
-                console.log('[SleepCoach] Reading audio file:', recording.uri);
-                
-                // Ler arquivo de áudio e converter para base64
-                const audioBase64 = await FileSystemLegacy.readAsStringAsync(recording.uri, {
-                    encoding: 'base64',
-                });
-
-                console.log('[SleepCoach] Audio file read successfully, size:', audioBase64.length);
-                console.log('[SleepCoach] Sending audio via base64...');
-
-                // Enviar áudio para API usando endpoint com base64
-                const response = await sendChatAudio(audioBase64, 'audio.m4a');
-                console.log('[SleepCoach] Audio response received:', response);
-
-                // Criar mensagem do coach com resposta real
-                const coachMessage: CoachMessage = {
-                    id: `msg_${Date.now()}_coach`,
-                    role: 'coach',
-                    content: response.ai_response,
-                    timestamp: Date.now(),
-                    type: 'text',
-                };
-
-                setMessages((prev) => [...prev, coachMessage]);
-            } catch (error: any) {
-                console.error('[SleepCoach] Error sending audio:', error);
-
-                // Mostrar erro amigável
-                const errorMessage = error.message || 'Erro ao processar áudio. Tente novamente.';
-                Alert.alert('Erro ao enviar áudio', errorMessage);
-
-                // Remover mensagem de carregamento
-                setMessages((prev) => prev.slice(0, -1));
-            } finally {
-                setIsLoading(false);
-            }
-        } catch (error) {
-            console.error('[SleepCoach] Error preparing audio:', error);
-            Alert.alert('Erro', 'Erro ao preparar áudio para envio.');
-            setIsLoading(false);
-        }
-    };
-
-    const handleSendMessage = async () => {
-        if (!inputValue.trim()) return;
-
-        // Add user message
-        const userMessage: CoachMessage = {
-            id: `msg_${Date.now()}`,
-            role: 'user',
-            content: inputValue,
-            timestamp: Date.now(),
-        };
-
-        setMessages(prev => [...prev, userMessage]);
-        setInputValue('');
-        setIsLoading(true);
-
-        try {
-            // Enviar mensagem para API
-            const response = await sendChatMessage(inputValue);
-
-            // Criar mensagem do coach com resposta real
-            const coachMessage: CoachMessage = {
-                id: `msg_${Date.now()}_coach`,
-                role: 'coach',
-                content: response.ai_response,
-                timestamp: Date.now(),
-            };
-
-            setMessages(prev => [...prev, coachMessage]);
-        } catch (error: any) {
-            console.error('[SleepCoach] Error sending message:', error);
-
-            // Mostrar erro amigável
-            const errorMessage = error.message || 'Erro ao enviar mensagem. Tente novamente.';
-            Alert.alert('Erro ao enviar mensagem', errorMessage);
-
-            // Remover mensagem do usuário em caso de erro
-            setMessages(prev => prev.slice(0, -1));
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleClearChat = () => {
-        setMessages([
+      return (
+        <View
+          style={[
+            styles.messageBubble,
             {
-                id: '1',
-                role: 'coach',
-                content: 'Olá! 👋 Sou seu assistente de sono. Estou aqui para ajudar você a melhorar a qualidade do seu sono com dicas personalizadas. Como posso te ajudar hoje?',
-                timestamp: Date.now(),
+              alignSelf: isCoach ? 'flex-start' : 'flex-end',
+              backgroundColor: isCoach ? theme.colors.surface : theme.colors.accentSoft,
+              borderColor: isCoach ? theme.colors.border : theme.colors.accent,
+              borderRadius: theme.radius.lg,
             },
-        ]);
-    };
-
-    return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={[styles.container, { backgroundColor: colors.background }]}
-            keyboardVerticalOffset={100}
+          ]}
         >
-            {/* Header */}
-            <View style={[styles.header, { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border }]}>
-                <View>
-                    <Text style={[styles.title, { color: colors.text }]}>Coach do Sono</Text>
-                    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Assistente de IA para melhorar seu sono</Text>
+          {hasAudio && item.audio ? (
+            <Pressable style={styles.audioRow} onPress={() => handleToggleAudioPlayback(item)}>
+              <View style={[styles.audioButton, { borderRadius: theme.radius.pill, backgroundColor: theme.colors.surfaceStrong }]}>
+                <AppIcon
+                  name={playingAudioId === item.audio.id ? 'pause' : 'waveform'}
+                  color={theme.colors.text}
+                  size={18}
+                />
+              </View>
+
+              <View style={styles.audioDetail}>
+                <View style={[styles.progressTrack, { backgroundColor: theme.colors.border, borderRadius: theme.radius.pill }]}>
+                  <View style={[styles.progressFill, { width: progressWidth, borderRadius: theme.radius.pill, backgroundColor: theme.colors.accent }]} />
                 </View>
+                <Text style={[styles.audioTime, { color: theme.colors.textMuted }]}>
+                  {audioService.formatDuration(progressValue)} / {audioService.formatDuration(item.audio.duration)}
+                </Text>
+              </View>
+            </Pressable>
+          ) : (
+            <Text style={[styles.messageText, { color: isCoach ? theme.colors.text : theme.colors.text }]}>{item.content}</Text>
+          )}
+
+          <Text style={[styles.timestamp, { color: theme.colors.textSubtle }]}>
+            {new Date(item.timestamp).toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </Text>
+        </View>
+      );
+    },
+    [audioProgress, handleToggleAudioPlayback, playingAudioId, theme.colors, theme.radius],
+  );
+
+  const clearConversation = useCallback(() => {
+    setMessages([
+      {
+        id: 'initial-coach-message',
+        role: 'coach',
+        content: 'Conversa reiniciada. Posso te ajudar a planejar sua próxima noite.',
+        timestamp: Date.now(),
+      },
+    ]);
+    setChatError(null);
+  }, []);
+
+  const canSend = inputValue.trim().length > 0 && !isLoading;
+
+  return (
+    <AppScreen style={styles.screen}>
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={88}>
+        <View style={styles.headerWrap}>
+          <Header title="Coach do sono" subtitle="Assistente com contexto dos seus dados recentes" icon="chat" />
+        </View>
+
+        {chatError ? (
+          <ErrorState description={chatError} onRetry={() => setChatError(null)} retryLabel="Fechar aviso" style={styles.errorState} />
+        ) : null}
+
+        {!messages.length ? (
+          <EmptyState
+            title="Sem mensagens"
+            description="Comece perguntando sobre rotina, consistência ou recuperação do sono."
+            icon="chat"
+          />
+        ) : (
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messagesContent}
+            ItemSeparatorComponent={() => <View style={styles.messageSpacer} />}
+            showsVerticalScrollIndicator={false}
+            style={styles.messagesList}
+          />
+        )}
+
+        {isLoading ? <InlineFeedback tone="info" message="Coach processando sua solicitação..." /> : null}
+
+        {isRecording ? (
+          <GlassCard variant="default" contentStyle={styles.recordingCard}>
+            <View style={styles.recordingLabelRow}>
+              <AppIcon name="microphone" color={theme.colors.accent} size={18} />
+              <Text style={[styles.recordingText, { color: theme.colors.text }]}>Gravando {audioService.formatDuration(recordingDuration)}</Text>
+            </View>
+            <View style={styles.recordingActions}>
+              <Button title="Cancelar" onPress={handleCancelRecording} variant="ghost" icon="close" />
+              <Button title="Enviar áudio" onPress={handleStopRecording} variant="primary" icon="check" iconPosition="right" />
+            </View>
+          </GlassCard>
+        ) : (
+          <GlassCard variant="subtle" contentStyle={styles.inputCard}>
+            <TextInput
+              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}
+              placeholder="Descreva como foi sua noite ou peça uma sugestão"
+              placeholderTextColor={theme.colors.textSubtle}
+              multiline
+              maxLength={600}
+              editable={!isLoading}
+              value={inputValue}
+              onChangeText={setInputValue}
+            />
+
+            <View style={styles.inputActions}>
+              <Button
+                title="Gravar áudio"
+                onPress={handleStartRecording}
+                disabled={isLoading}
+                variant="secondary"
+                icon="microphone"
+              />
+              <Button
+                title="Enviar"
+                onPress={handleSendMessage}
+                disabled={!canSend}
+                loading={isLoading}
+                icon="arrowRight"
+                iconPosition="right"
+              />
             </View>
 
-            {/* Messages */}
-            <ScrollView
-                ref={scrollViewRef}
-                style={styles.messagesContainer}
-                contentContainerStyle={styles.messagesContent}
-                showsVerticalScrollIndicator={false}
-            >
-                {messages.map(message => (
-                    <View
-                        key={message.id}
-                        style={[
-                            styles.messageBubble,
-                            message.role === 'coach'
-                                ? {
-                                    alignSelf: 'flex-start',
-                                    backgroundColor: colors.surface,
-                                    borderTopLeftRadius: 4,
-                                }
-                                : {
-                                    alignSelf: 'flex-end',
-                                    backgroundColor: colors.primary,
-                                    borderTopRightRadius: 4,
-                                },
-                        ]}
-                    >
-                        {message.type === 'audio' && message.audio ? (
-                            <View style={styles.audioMessageContainer}>
-                                <TouchableOpacity
-                                    onPress={() => handlePlayAudio(message.audio!.id, message.audio!.uri, message.audio!.duration)}
-                                    style={styles.audioPlayButton}
-                                >
-                                    <Text style={styles.audioPlayButtonText}>
-                                        {playingAudioId === message.audio.id ? '⏸️' : '▶️'}
-                                    </Text>
-                                </TouchableOpacity>
-                                <View style={styles.audioDetails}>
-                                    <View style={styles.audioProgressContainer}>
-                                        <View
-                                            style={[
-                                                styles.audioProgressBar,
-                                                {
-                                                    width: `${((audioProgress[message.audio.id] || 0) / message.audio.duration) * 100}%`,
-                                                },
-                                            ]}
-                                        />
-                                    </View>
-                                    <View style={styles.audioTimeContainer}>
-                                        <Text style={[styles.audioTime, { color: 'white' }]}>
-                                            {audioService.formatDuration(audioProgress[message.audio.id] || 0)}
-                                        </Text>
-                                        <Text style={[styles.audioTime, { color: 'rgba(255,255,255,0.6)' }]}>
-                                            {audioService.formatDuration(message.audio.duration)}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        ) : (
-                            <Text
-                                style={[
-                                    styles.messageText,
-                                    {
-                                        color: message.role === 'coach' ? colors.text : 'white',
-                                    },
-                                ]}
-                            >
-                                {message.content}
-                            </Text>
-                        )}
-                        <Text
-                            style={[
-                                styles.timestamp,
-                                {
-                                    color: message.role === 'coach' ? colors.textSecondary : 'rgba(255,255,255,0.7)',
-                                },
-                            ]}
-                        >
-                            {new Date(message.timestamp).toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                            })}
-                        </Text>
-                    </View>
-                ))}
-
-                {isLoading && (
-                    <View style={[styles.messageBubble, { alignSelf: 'flex-start', backgroundColor: colors.surface }]}>
-                        <Text style={[styles.loadingDots, { color: colors.text }]}>● ● ●</Text>
-                    </View>
-                )}
-            </ScrollView>
-
-            {/* Input Area */}
-            <View style={[styles.inputContainer, { backgroundColor: colors.surfaceElevated, borderTopColor: colors.border }]}>
-                {isRecording ? (
-                    // Recording Mode
-                    <View style={[styles.recordingBox, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
-                        <View style={styles.recordingContent}>
-                            <View style={styles.recordingIndicator}>
-                                <View style={[styles.recordingDot, { backgroundColor: colors.primary }]} />
-                                <Text style={[styles.recordingText, { color: colors.text }]}>
-                                    Gravando {audioService.formatDuration(recordingDuration)}
-                                </Text>
-                            </View>
-                        </View>
-                        <View style={styles.recordingButtons}>
-                            <TouchableOpacity
-                                onPress={handleCancelRecording}
-                                style={[styles.recordingButton, { backgroundColor: colors.border }]}
-                            >
-                                <Text style={styles.recordingButtonText}>✕</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={handleStopRecording}
-                                style={[styles.recordingButton, { backgroundColor: colors.primary }]}
-                            >
-                                <Text style={styles.recordingButtonText}>✓</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ) : (
-                    // Normal Input Mode
-                    <>
-                        <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                            <TextInput
-                                style={[styles.textInput, { color: colors.text }]}
-                                placeholder="Escreva sua pergunta..."
-                                placeholderTextColor={colors.textSecondary}
-                                value={inputValue}
-                                onChangeText={setInputValue}
-                                multiline
-                                maxLength={500}
-                                editable={!isLoading}
-                            />
-                            <TouchableOpacity
-                                onPress={handleStartRecording}
-                                disabled={isLoading}
-                                style={[
-                                    styles.audioButton,
-                                    {
-                                        backgroundColor: !isLoading ? colors.primary : colors.border,
-                                    },
-                                ]}
-                            >
-                                <Text style={styles.audioButtonText}>🎙️</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={handleSendMessage}
-                                disabled={!inputValue.trim() || isLoading}
-                                style={[
-                                    styles.sendButton,
-                                    {
-                                        backgroundColor: inputValue.trim() && !isLoading ? colors.primary : colors.border,
-                                    },
-                                ]}
-                            >
-                                <Text style={styles.sendButtonText}>→</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Clear Chat Button */}
-                        <TouchableOpacity
-                            onPress={handleClearChat}
-                            style={[styles.clearButton, { borderColor: colors.border }]}
-                        >
-                            <Text style={[styles.clearButtonText, { color: colors.textSecondary }]}>
-                                Limpar Conversa
-                            </Text>
-                        </TouchableOpacity>
-                    </>
-                )}
-            </View>
-        </KeyboardAvoidingView>
-    );
+            <Pressable onPress={clearConversation} hitSlop={8}>
+              <Text style={[styles.clearText, { color: theme.colors.textSubtle }]}>Limpar conversa</Text>
+            </Pressable>
+          </GlassCard>
+        )}
+      </KeyboardAvoidingView>
+    </AppScreen>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
-        borderBottomWidth: 1,
-    },
-    title: {
-        fontSize: typography.subtitle,
-        fontWeight: '700',
-        marginBottom: spacing.xs,
-    },
-    subtitle: {
-        fontSize: typography.small,
-    },
-    messagesContainer: {
-        flex: 1,
-        paddingHorizontal: spacing.lg,
-    },
-    messagesContent: {
-        paddingVertical: spacing.lg,
-        gap: spacing.md,
-    },
-    messageBubble: {
-        maxWidth: '85%',
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderRadius: borderRadius.lg,
-        gap: spacing.xs,
-    },
-    messageText: {
-        fontSize: typography.body,
-        lineHeight: typography.body + 6,
-    },
-    timestamp: {
-        fontSize: typography.small,
-    },
-    loadingDots: {
-        fontSize: typography.subtitle,
-        letterSpacing: 4,
-    },
-    inputContainer: {
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
-        borderTopWidth: 1,
-        gap: spacing.md,
-    },
-    inputBox: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        borderWidth: 1,
-        borderRadius: borderRadius.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        gap: spacing.sm,
-    },
-    textInput: {
-        flex: 1,
-        maxHeight: 100,
-        fontSize: typography.body,
-        paddingVertical: spacing.sm,
-    },
-    audioButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: spacing.xs,
-    },
-    audioButtonText: {
-        fontSize: 16,
-    },
-    sendButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: spacing.xs,
-    },
-    sendButtonText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: 'white',
-    },
-    clearButton: {
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-        borderRadius: borderRadius.md,
-        borderWidth: 1,
-        alignItems: 'center',
-    },
-    clearButtonText: {
-        fontSize: typography.caption,
-        fontWeight: '600',
-    },
-    audioMessageContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-        width: '100%',
-    },
-    audioPlayButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        flexShrink: 0,
-    },
-    audioPlayButtonText: {
-        fontSize: 20,
-    },
-    audioDetails: {
-        flex: 1,
-        gap: spacing.sm,
-    },
-    audioProgressContainer: {
-        height: 3,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 2,
-        overflow: 'hidden',
-    },
-    audioProgressBar: {
-        height: '100%',
-        backgroundColor: 'white',
-        borderRadius: 2,
-    },
-    audioTimeContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    audioTime: {
-        fontSize: typography.caption,
-    },
-    audioIcon: {
-        fontSize: 24,
-    },
-    audioInfo: {
-        gap: spacing.xs,
-    },
-    audioLabel: {
-        fontSize: typography.small,
-        fontWeight: '600',
-    },
-    audioDuration: {
-        fontSize: typography.caption,
-    },
-    recordingBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderWidth: 2,
-        borderRadius: borderRadius.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.md,
-    },
-    recordingContent: {
-        flex: 1,
-    },
-    recordingIndicator: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-    },
-    recordingDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-    },
-    recordingText: {
-        fontSize: typography.body,
-        fontWeight: '600',
-    },
-    recordingButtons: {
-        flexDirection: 'row',
-        gap: spacing.sm,
-    },
-    recordingButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    recordingButtonText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: 'white',
-    },
+  screen: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  container: {
+    flex: 1,
+    gap: 10,
+  },
+  headerWrap: {
+    paddingHorizontal: 4,
+  },
+  errorState: {
+    marginHorizontal: 4,
+  },
+  messagesList: {
+    flex: 1,
+  },
+  messagesContent: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+  },
+  messageSpacer: {
+    height: 8,
+  },
+  messageBubble: {
+    borderWidth: 1,
+    maxWidth: '88%',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  timestamp: {
+    fontSize: 11,
+  },
+  audioRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  audioButton: {
+    alignItems: 'center',
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
+  },
+  audioDetail: {
+    flex: 1,
+    gap: 6,
+  },
+  progressTrack: {
+    height: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+  },
+  audioTime: {
+    fontSize: 11,
+  },
+  recordingCard: {
+    gap: 10,
+  },
+  recordingLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  recordingText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  recordingActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  inputCard: {
+    gap: 10,
+  },
+  input: {
+    borderWidth: 1,
+    minHeight: 78,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlignVertical: 'top',
+  },
+  inputActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  clearText: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
 });

@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
-import { typography } from '../styles/theme';
+import { LoadingState } from '../components/states';
+import { GlassTabBar } from '../components/navigation/GlassTabBar';
 
-// Import screens
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { PermissionsScreen } from '../screens/PermissionsScreen';
 import { QuestionnaireScreen } from '../screens/QuestionnaireScreen';
@@ -16,208 +17,176 @@ import { SleepQualityScreen } from '../screens/SleepQualityScreen';
 import { SleepCoachScreen } from '../screens/SleepCoachScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { AlarmScreen } from '../screens/AlarmScreen';
-import { DetailedAnalysisScreen } from '../screens/StubScreens';
-import { InsightsScreen } from '../screens/InsightsSreen';
+import { DetailedAnalysisScreen, InsightsScreen } from '../screens/StubScreens';
 import { WeeklyReportScreen } from '../screens/WeeklyReportScreen';
-import { ThemeToggle } from '../components/ThemeToggle';
 
-// Type definitions
+export type OnboardingStackParamList = {
+  Welcome: undefined;
+  Permissions: undefined;
+  Questionnaire: undefined;
+};
+
+export type HomeStackParamList = {
+  Dashboard: undefined;
+  DetailedAnalysis: undefined;
+  Insights: undefined;
+  WeeklyReport: undefined;
+  Alarm: undefined;
+};
+
+export type LoggingStackParamList = {
+  SleepLogging: undefined;
+};
+
+export type QualityStackParamList = {
+  SleepQuality: undefined;
+  WeeklyReport: undefined;
+};
+
+export type CoachStackParamList = {
+  SleepCoach: undefined;
+};
+
+export type ProfileStackParamList = {
+  Profile: undefined;
+};
+
+export type MainTabParamList = {
+  HomeTab: undefined;
+  LoggingTab: undefined;
+  QualityTab: undefined;
+  CoachTab: undefined;
+  ProfileTab: undefined;
+};
+
 export type RootStackParamList = {
-    // Onboarding
-    Welcome: undefined;
-    Permissions: undefined;
-    Questionnaire: undefined;
-
-    // Main
-    Dashboard: undefined;
-    SleepLogging: undefined;
-    SleepQuality: undefined;
-    SleepCoach: undefined;
-    DetailedAnalysis: undefined;
-    InsightsScreen: undefined; // Updated to match the InsightsScreen key
-    WeeklyReport: undefined;
-    Profile: undefined;
-    Alarm: undefined;
+  OnboardingFlow: undefined;
+  MainTabs: undefined;
 };
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
+const HomeStack = createNativeStackNavigator<HomeStackParamList>();
+const LoggingStack = createNativeStackNavigator<LoggingStackParamList>();
+const QualityStack = createNativeStackNavigator<QualityStackParamList>();
+const CoachStack = createNativeStackNavigator<CoachStackParamList>();
+const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
+const MainTab = createBottomTabNavigator<MainTabParamList>();
 
-const OnboardingStack: React.FC = () => {
-    const { colors } = useTheme();
+const hiddenHeaderOptions = {
+  headerShown: false,
+} as const;
 
-    return (
-        <Stack.Navigator
-            initialRouteName="Welcome"
-            screenOptions={{
-                headerStyle: {
-                    backgroundColor: colors.background,
-                },
-                headerTintColor: colors.text,
-                headerTitleStyle: {
-                    fontWeight: '700',
-                    fontSize: typography.subtitle,
-                },
-                headerShadowVisible: false,
-                contentStyle: {
-                    backgroundColor: colors.background,
-                },
-                headerRight: () => <ThemeToggle />,
-            }}
-        >
-            <Stack.Screen
-                name="Welcome"
-                component={WelcomeScreen}
-                options={{ headerShown: false }}
-            />
-            <Stack.Screen
-                name="Permissions"
-                component={PermissionsScreen}
-                options={{
-                    title: 'Permissions',
-                    headerBackTitle: 'Back',
-                }}
-            />
-            <Stack.Screen
-                name="Questionnaire"
-                component={QuestionnaireScreen}
-                options={{
-                    title: 'Your Profile',
-                    headerBackTitle: 'Back',
-                }}
-            />
-        </Stack.Navigator>
-    );
+const OnboardingNavigator: React.FC = () => {
+  return (
+    <OnboardingStack.Navigator screenOptions={hiddenHeaderOptions}>
+      <OnboardingStack.Screen name="Welcome" component={WelcomeScreen} />
+      <OnboardingStack.Screen name="Permissions" component={PermissionsScreen} />
+      <OnboardingStack.Screen name="Questionnaire" component={QuestionnaireScreen} />
+    </OnboardingStack.Navigator>
+  );
 };
 
-const MainStack: React.FC = () => {
-    const { colors } = useTheme();
+const HomeNavigator: React.FC = () => {
+  return (
+    <HomeStack.Navigator screenOptions={hiddenHeaderOptions}>
+      <HomeStack.Screen name="Dashboard" component={DashboardScreen} />
+      <HomeStack.Screen name="DetailedAnalysis" component={DetailedAnalysisScreen} />
+      <HomeStack.Screen name="Insights" component={InsightsScreen} />
+      <HomeStack.Screen name="WeeklyReport" component={WeeklyReportScreen} />
+      <HomeStack.Screen name="Alarm" component={AlarmScreen} />
+    </HomeStack.Navigator>
+  );
+};
 
-    return (
-        <Stack.Navigator
-            initialRouteName="Dashboard"
-            screenOptions={{
-                headerStyle: {
-                    backgroundColor: colors.background,
-                },
-                headerTintColor: colors.text,
-                headerTitleStyle: {
-                    fontWeight: '700',
-                    fontSize: typography.subtitle,
-                },
-                headerShadowVisible: false,
-                contentStyle: {
-                    backgroundColor: colors.background,
-                },
-                headerRight: () => <ThemeToggle />,
-            }}
-        >
-            <Stack.Screen
-                name="Dashboard"
-                component={DashboardScreen}
-                options={{ headerShown: false }}
-            />
-            <Stack.Screen
-                name="SleepLogging"
-                component={SleepLoggingScreen}
-                options={{
-                    title: 'Log Sleep',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="SleepQuality"
-                component={SleepQualityScreen}
-                options={{
-                    title: 'Qualidade do Sono',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="SleepCoach"
-                component={SleepCoachScreen}
-                options={{
-                    title: 'Coach do Sono',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="DetailedAnalysis"
-                component={DetailedAnalysisScreen}
-                options={{
-                    title: 'Detailed Analysis',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="InsightsScreen"
-                component={InsightsScreen}
-                options={{
-                    title: 'Insights',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="WeeklyReport"
-                component={WeeklyReportScreen}
-                options={{
-                    title: 'Weekly Report',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="Profile"
-                component={ProfileScreen}
-                options={{
-                    title: 'Profile',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-            <Stack.Screen
-                name="Alarm"
-                component={AlarmScreen}
-                options={{
-                    title: 'Alarm',
-                    headerBackTitle: 'Dashboard',
-                }}
-            />
-        </Stack.Navigator>
-    );
+const LoggingNavigator: React.FC = () => {
+  return (
+    <LoggingStack.Navigator screenOptions={hiddenHeaderOptions}>
+      <LoggingStack.Screen name="SleepLogging" component={SleepLoggingScreen} />
+    </LoggingStack.Navigator>
+  );
+};
+
+const QualityNavigator: React.FC = () => {
+  return (
+    <QualityStack.Navigator screenOptions={hiddenHeaderOptions}>
+      <QualityStack.Screen name="SleepQuality" component={SleepQualityScreen} />
+      <QualityStack.Screen name="WeeklyReport" component={WeeklyReportScreen} />
+    </QualityStack.Navigator>
+  );
+};
+
+const CoachNavigator: React.FC = () => {
+  return (
+    <CoachStack.Navigator screenOptions={hiddenHeaderOptions}>
+      <CoachStack.Screen name="SleepCoach" component={SleepCoachScreen} />
+    </CoachStack.Navigator>
+  );
+};
+
+const ProfileNavigator: React.FC = () => {
+  return (
+    <ProfileStack.Navigator screenOptions={hiddenHeaderOptions}>
+      <ProfileStack.Screen name="Profile" component={ProfileScreen} />
+    </ProfileStack.Navigator>
+  );
+};
+
+const MainTabsNavigator: React.FC = () => {
+  return (
+    <MainTab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarHideOnKeyboard: true,
+      }}
+      tabBar={(props: any) => <GlassTabBar {...props} />}
+    >
+      <MainTab.Screen name="HomeTab" component={HomeNavigator} />
+      <MainTab.Screen name="LoggingTab" component={LoggingNavigator} />
+      <MainTab.Screen name="QualityTab" component={QualityNavigator} />
+      <MainTab.Screen name="CoachTab" component={CoachNavigator} />
+      <MainTab.Screen name="ProfileTab" component={ProfileNavigator} />
+    </MainTab.Navigator>
+  );
 };
 
 export const AppNavigator: React.FC = () => {
-    const { isDark, colors } = useTheme();
-    const appContext = useAppContext();
+  const { colors } = useTheme();
+  const appContext = useAppContext();
 
-    const navigationTheme = useMemo(() => ({
-        ...(isDark ? DarkTheme : DefaultTheme),
-        colors: {
-            ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
-            primary: colors.primary,
-            background: colors.background,
-            card: colors.surface,
-            text: colors.text,
-            border: colors.border,
-            notification: colors.highlight,
-        },
-    }), [isDark, colors]);
+  const navigationTheme = useMemo(
+    () => ({
+      ...DarkTheme,
+      colors: {
+        ...DarkTheme.colors,
+        primary: colors.accent,
+        background: colors.background,
+        card: colors.backgroundElevated,
+        text: colors.text,
+        border: colors.border,
+        notification: colors.warning,
+      },
+    }),
+    [colors],
+  );
 
-    // Show loading screen while app context is initializing
-    if (appContext.isLoading) {
-        return (
-            <View style={{
-                flex: 1,
-                justifyContent: 'center',
-                alignItems: 'center',
-                backgroundColor: colors.background,
-            }}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-        );
-    }
-
+  if (appContext.isLoading) {
     return (
-        <NavigationContainer theme={navigationTheme}>
-            {appContext.isOnboarded ? <MainStack /> : <OnboardingStack />}
-        </NavigationContainer>
+      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.background }}>
+        <LoadingState title="Preparando sua experiência" description="Sincronizando dados locais" />
+      </View>
     );
+  }
+
+  return (
+    <NavigationContainer theme={navigationTheme}>
+      <RootStack.Navigator screenOptions={hiddenHeaderOptions}>
+        {appContext.isOnboarded ? (
+          <RootStack.Screen name="MainTabs" component={MainTabsNavigator} />
+        ) : (
+          <RootStack.Screen name="OnboardingFlow" component={OnboardingNavigator} />
+        )}
+      </RootStack.Navigator>
+    </NavigationContainer>
+  );
 };
