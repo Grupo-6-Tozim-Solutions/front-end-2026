@@ -25,7 +25,10 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) => {
   // Calcula quantas horas de sono são necessárias no fim de semana
   // Leva em conta o déficit de sono da semana (máximo 2 horas de compensação)
   function calcularSonoFimDeSemana(horas: number[]) {
-    const media = horas.reduce((a, b) => a + b, 0) / horas.length;
+    const noitesComSono = horas.filter((hora) => hora > 0);
+    if (!noitesComSono.length) return IDEAL_SLEEP;
+
+    const media = noitesComSono.reduce((a, b) => a + b, 0) / noitesComSono.length;
     const deficit = IDEAL_SLEEP - media;
     const compensacao = Math.min(Math.max(deficit, 0), MAX_COMPENSATION);
     return IDEAL_SLEEP + compensacao;

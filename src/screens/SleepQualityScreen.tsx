@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { formatQualityMetrics } from '../utils/sleepQualityCalculations';
+import { hasRecordedSleep, parseSleepQuality } from '../utils/sleepMetrics';
 import { AppScreen, Button, GlassCard, Header } from '../components/ui';
 import { EmptyState, InlineFeedback } from '../components/states';
 
@@ -39,10 +40,10 @@ export const SleepQualityScreen: React.FC<SleepQualityScreenProps> = ({ navigati
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
-      const log = appContext.sleepLogs.find((entry) => entry.date === dateStr);
+      const log = appContext.sleepLogs.find((entry) => entry.date === dateStr && hasRecordedSleep(entry));
       rows.push({
         day: date.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3),
-        quality: log ? parseInt(log.quality || '0', 10) : null,
+        quality: log ? parseSleepQuality(log.quality) : null,
       });
     }
     return rows;

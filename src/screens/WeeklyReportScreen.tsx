@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { AppScreen, Button, GlassCard, Header } from '../components/ui';
 import { QualityComparisonChart } from '../components/QualityComparisonChart';
 import { EmptyState } from '../components/states';
+import { generateWeeklyAISummary } from '../services/aiAnalysisService';
+import { calculateAverageHours, filterLogsWithRecordedSleep, hasRecordedSleep, parseHoursSlept } from '../utils/sleepMetrics';
 
 const daysOfWeek = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
@@ -15,6 +17,8 @@ interface WeeklyReportScreenProps {
 export const WeeklyReportScreen: React.FC<WeeklyReportScreenProps> = ({ navigation }) => {
   const { theme } = useTheme();
   const appContext = useAppContext();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
   const last7DaysLogs = useMemo(() => {
     const now = Date.now();
@@ -25,10 +29,10 @@ export const WeeklyReportScreen: React.FC<WeeklyReportScreenProps> = ({ navigati
   }, [appContext.sleepLogs]);
 
   const weeklyHours = useMemo(() => {
-    if (!last7DaysLogs.length) return 0;
-    const total = last7DaysLogs.reduce((sum, log) => sum + Number(log.hoursSlept || 0), 0);
-    return total / last7DaysLogs.length;
+    return calculateAverageHours(last7DaysLogs);
   }, [last7DaysLogs]);
+
+  const last7DaysWithSleep = useMemo(() => filterLogsWithRecordedSleep(last7DaysLogs), [last7DaysLogs]);
 
   const weeklyScore = useMemo(() => Math.round((Math.min(9, weeklyHours) / 9) * 100), [weeklyHours]);
 
@@ -37,9 +41,7 @@ export const WeeklyReportScreen: React.FC<WeeklyReportScreenProps> = ({ navigati
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
     const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
     const previous = appContext.sleepLogs.filter((log) => log.timestamp >= fourteenDaysAgo && log.timestamp < sevenDaysAgo);
-    const previousAvg = previous.length
-      ? previous.reduce((sum, log) => sum + Number(log.hoursSlept || 0), 0) / previous.length
-      : weeklyHours;
+    const previousAvg = calculateAverageHours(previous) || weeklyHours;
     const previousScore = Math.round((Math.min(9, previousAvg) / 9) * 100);
     return weeklyScore - previousScore;
   }, [appContext.sleepLogs, weeklyHours, weeklyScore]);
@@ -53,11 +55,56 @@ export const WeeklyReportScreen: React.FC<WeeklyReportScreenProps> = ({ navigati
       const dayLabel = daysOfWeek[date.getDay() === 0 ? 6 : date.getDay() - 1];
       const dayIso = date.toISOString().slice(0, 10);
       const log = appContext.sleepLogs.find((entry) => entry.date === dayIso);
-      result.push({ label: dayLabel, hours: log ? Number(log.hoursSlept || 0) : 0 });
+      result.push({ label: dayLabel, hours: hasRecordedSleep(log) ? parseHoursSlept(log.hoursSlept) : 0 });
     }
 
     return result;
   }, [appContext.sleepLogs]);
+
+  // Gerar resumo com IA quando os dados mudarem
+  useEffect(() => {
+    if (last7DaysWithSleep.length > 0) {
+      console.log('[WeeklyReport] Dados calculados:', {
+        weeklyHours: weeklyHours.toFixed(2),
+        weeklyScore,
+        changeVsPrevWeek,
+        last7DaysLogs: last7DaysWithSleep.length,
+      });
+      generateAISummary();
+    } else {
+      setAiSummary('Registre noites com horas dormidas para gerar próximos passos personalizados.');
+    }
+  }, [last7DaysWithSleep.length, weeklyHours, weeklyScore, changeVsPrevWeek]);
+
+  const generateAISummary = async () => {
+    try {
+      setIsLoadingAI(true);
+      setAiSummary(null);
+
+      console.log('[WeeklyReport] Chamando serviço de IA com parâmetros:', {
+        weeklyScore,
+        weeklyHours: weeklyHours.toFixed(2),
+        changeVsPrevWeek,
+        daysLogged: last7DaysWithSleep.length,
+      });
+      
+      const summary = await generateWeeklyAISummary(
+        weeklyScore,
+        weeklyHours,
+        changeVsPrevWeek,
+        last7DaysWithSleep.length
+      );
+      
+      setAiSummary(summary);
+      console.log('[WeeklyReport] AI Summary gerado com sucesso');
+    } catch (error) {
+      console.error('[WeeklyReport] Erro ao gerar resumo com IA:', error);
+      // Se falhar, usar resumo padrão
+      setAiSummary('Dados insuficientes para gerar análise. Tente novamente.');
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
 
   if (!appContext.sleepLogs.length) {
     return (
@@ -130,9 +177,23 @@ export const WeeklyReportScreen: React.FC<WeeklyReportScreenProps> = ({ navigati
 
       <GlassCard variant="default" contentStyle={styles.summaryCard}>
         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Resumo e próximos passos</Text>
-        <Text style={[styles.summaryText, { color: theme.colors.textMuted }]}>Média de horas: {weeklyHours.toFixed(1)}h</Text>
-        <Text style={[styles.summaryText, { color: theme.colors.textMuted }]}>Consistência: mantenha variação menor que 30 minutos por noite.</Text>
-        <Text style={[styles.summaryText, { color: theme.colors.textMuted }]}>Foco da próxima semana: reduzir uso de tela após 23h para melhorar recuperação.</Text>
+        
+        {isLoadingAI ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={theme.colors.accent} />
+            <Text style={[styles.loadingText, { color: theme.colors.textMuted }]}>
+              Gerando análise com IA...
+            </Text>
+          </View>
+        ) : aiSummary ? (
+          <Text style={[styles.summaryText, { color: theme.colors.textMuted }]}>
+            {aiSummary}
+          </Text>
+        ) : (
+          <Text style={[styles.summaryText, { color: theme.colors.textMuted }]}>
+            Não foi possível gerar análise. Tente novamente.
+          </Text>
+        )}
       </GlassCard>
 
       <View style={styles.actions}>
@@ -207,6 +268,16 @@ const styles = StyleSheet.create({
   summaryText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   actions: {
     gap: 10,

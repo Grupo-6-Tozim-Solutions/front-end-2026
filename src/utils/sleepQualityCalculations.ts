@@ -4,14 +4,9 @@
  */
 
 import { SleepLog, SleepQualityMetrics } from '../types/user';
+import { hasRecordedSleep, parseSleepQuality } from './sleepMetrics';
 
 const DEFAULT_GLOBAL_AVERAGE = 0;
-
-const parseQuality = (quality?: string): number => {
-  if (!quality) return 0;
-  const num = parseInt(quality, 10);
-  return Number.isNaN(num) ? 0 : Math.min(10, Math.max(0, num));
-};
 
 export const calculateAverageQuality = (logs: SleepLog[], days = 7): number => {
   if (!logs || logs.length === 0) return 0;
@@ -19,10 +14,10 @@ export const calculateAverageQuality = (logs: SleepLog[], days = 7): number => {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
-  const recentLogs = logs.filter((log) => new Date(log.date) >= cutoffDate);
+  const recentLogs = logs.filter((log) => new Date(log.date) >= cutoffDate && hasRecordedSleep(log));
   if (recentLogs.length === 0) return 0;
 
-  const sum = recentLogs.reduce((acc, log) => acc + parseQuality(log.quality), 0);
+  const sum = recentLogs.reduce((acc, log) => acc + parseSleepQuality(log.quality), 0);
   return Math.round((sum / recentLogs.length) * 10) / 10;
 };
 
@@ -36,7 +31,7 @@ export const calculateTrend = (
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
   const recentLogs = logs
-    .filter((log) => new Date(log.date) >= cutoffDate)
+    .filter((log) => new Date(log.date) >= cutoffDate && hasRecordedSleep(log))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   if (recentLogs.length < 3) return 'stable';
@@ -45,9 +40,9 @@ export const calculateTrend = (
   const firstHalf = recentLogs.slice(0, midpoint);
   const secondHalf = recentLogs.slice(midpoint);
 
-  const firstAvg = firstHalf.reduce((acc, log) => acc + parseQuality(log.quality), 0) / firstHalf.length;
+  const firstAvg = firstHalf.reduce((acc, log) => acc + parseSleepQuality(log.quality), 0) / firstHalf.length;
   const secondAvg =
-    secondHalf.reduce((acc, log) => acc + parseQuality(log.quality), 0) / secondHalf.length;
+    secondHalf.reduce((acc, log) => acc + parseSleepQuality(log.quality), 0) / secondHalf.length;
 
   const diff = secondAvg - firstAvg;
 
@@ -63,7 +58,7 @@ export const calculateCurrentStreak = (logs: SleepLog[], threshold = 7): number 
 
   let streak = 0;
   for (const log of sortedLogs) {
-    if (parseQuality(log.quality) >= threshold) {
+    if (parseSleepQuality(log.quality) >= threshold) {
       streak += 1;
     } else {
       break;
@@ -104,7 +99,7 @@ export const calculateSleepQualityMetrics = (
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - periodDays);
-  const totalLogsInPeriod = logs.filter((log) => new Date(log.date) >= cutoffDate).length;
+  const totalLogsInPeriod = logs.filter((log) => new Date(log.date) >= cutoffDate && hasRecordedSleep(log)).length;
 
   return {
     averageQuality,
