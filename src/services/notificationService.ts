@@ -17,6 +17,14 @@ class NotificationService {
       allowWhileIdle: true,
     });
   }
+
+  notifyNow(mensagem: string) {
+    PushNotification.localNotification({
+      message: mensagem,
+      playSound: false,
+      importance: 'high',
+    });
+  }
 }
 
 export const notificationService = new NotificationService();

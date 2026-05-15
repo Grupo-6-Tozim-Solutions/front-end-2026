@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '../components/ui';
+import { notificationService } from '../services/notificationService';
+import { translations } from '../languages/pt';
 
 interface AlarmScreenProps {
   navigation?: any;
@@ -36,39 +38,45 @@ export const AlarmScreen: React.FC<AlarmScreenProps> = ({ navigation }) => {
 
   // Manipulador do botão de ativar/desativar despertador (mockado)
   function handleToggleAlarm() {
-    setIsAlarmActive(!isAlarmActive);
+    setIsAlarmActive((previousState) => {
+      const nextState = !previousState;
+      if (nextState) {
+        notificationService.notifyNow(translations.alarm.notificationActivated);
+      }
+      return nextState;
+    });
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.time, { color: theme.colors.accent }]}>08:20</Text>
+      <Text style={[styles.time, { color: theme.colors.accent }]}>{translations.alarm.wakeUpTime}</Text>
 
-      <Text style={[styles.label, { color: theme.colors.text }]}>9h 20min de sono recomendado</Text>
+      <Text style={[styles.label, { color: theme.colors.text }]}>{translations.alarm.recommendedSleep}</Text>
 
-      <Text style={[styles.description, { color: theme.colors.textMuted }]}>
-        O app calcula seu despertar com base no seu histórico de sono, horário médio de dormir e necessidade de recuperação.
+      <Text style={[styles.description, { color: theme.colors.textMuted }]}> 
+        {translations.alarm.description}
       </Text>
 
       <View style={styles.cardContainer}>
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.colors.textMuted }]}>Dorme em média</Text>
+          <Text style={[styles.cardTitle, { color: theme.colors.textMuted }]}>{translations.alarm.averageSleepTitle}</Text>
           <Text style={[styles.cardValue, { color: theme.colors.accent }]}>23:00</Text>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.colors.textMuted }]}>Déficit</Text>
+          <Text style={[styles.cardTitle, { color: theme.colors.textMuted }]}>{translations.alarm.deficitTitle}</Text>
           <Text style={[styles.cardValue, { color: theme.colors.accent }]}>1h 20min</Text>
         </View>
       </View>
 
-      <View style={[styles.important, { backgroundColor: theme.colors.warning }]}>
-        <Text style={[styles.importantText, { color: theme.colors.text }]}>
-          <Text style={{ fontWeight: 'bold' }}>IMPORTANTE:</Text> Confira se você não tem compromissos nesse horário!
+      <View style={[styles.important, { backgroundColor: theme.colors.warning }]}> 
+        <Text style={[styles.importantText, { color: theme.colors.text }]}> 
+          <Text style={{ fontWeight: 'bold' }}>{translations.alarm.warningTitle}</Text> {translations.alarm.warningDescription}
         </Text>
       </View>
 
       <Button
-        title={isAlarmActive ? 'Desativar despertador' : 'Ativar despertador'}
+        title={isAlarmActive ? translations.alarm.disableAlarm : translations.alarm.enableAlarm}
         onPress={handleToggleAlarm}
       />
     </View>

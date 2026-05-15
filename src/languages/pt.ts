@@ -52,6 +52,19 @@ export const translations = {
     errorRefreshing: 'Erro ao atualizar dados.',
   },
 
+  alarm: {
+    wakeUpTime: '08:20',
+    recommendedSleep: '9h 20min de sono recomendado',
+    description: 'O app calcula seu despertar com base no seu histórico de sono, horário médio de dormir e necessidade de recuperação.',
+    averageSleepTitle: 'Dorme em média',
+    deficitTitle: 'Déficit',
+    warningTitle: 'IMPORTANTE:',
+    warningDescription: 'Confira se você não tem compromissos nesse horário!',
+    enableAlarm: 'Ativar despertador',
+    disableAlarm: 'Desativar despertador',
+    notificationActivated: 'O alarme foi ativado.',
+  },
+
   sleepLogging: {
     title: 'Novo registro de sono',
     subtitle: 'Preencha os dados da última noite com rapidez.',
