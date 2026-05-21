@@ -15,8 +15,8 @@ import * as FileSystem from 'expo-file-system';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { audioService } from '../services/audioService';
+import { generateSleepCoachAudioReply, generateSleepCoachReply } from '../services/aiAnalysisService';
 import { permissionsService } from '../services/permissions';
-import { sendChatAudio, sendChatMessage } from '../services/chatService';
 import { CoachMessage } from '../types/coach';
 import { AppIcon, AppScreen, Button, GlassCard, Header } from '../components/ui';
 import { EmptyState, ErrorState, InlineFeedback } from '../components/states';
@@ -33,7 +33,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
     {
       id: 'initial-coach-message',
       role: 'coach',
-      content: 'Olá. Sou seu coach de sono e posso ajudar com ajustes de rotina baseados nos seus registros.',
+      content: 'Ola. Sou seu coach de sono e posso ajudar com ajustes de rotina baseados nos seus registros.',
       timestamp: Date.now(),
       type: 'text',
     },
@@ -51,10 +51,42 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
   const playbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const listRef = useRef<FlatList<CoachMessage>>(null);
 
-  const baseContextHint = useMemo(() => {
-    const stats = appContext.userQualityStats();
-    return `Contexto atual: média ${stats.averageQuality.toFixed(1)}/10, sequência ${stats.currentStreak} dia(s), registros ${appContext.sleepLogs.length}.`;
-  }, [appContext]);
+  const qualityStats = useMemo(
+    () => appContext.userQualityStats(),
+    [appContext.globalQualityAverage, appContext.sleepLogs],
+  );
+
+  const coachProfile = useMemo(
+    () => ({
+      age: appContext.userData?.age,
+      gender: appContext.userData?.gender,
+      bedTime: appContext.userData?.bedTime,
+      wakeTime: appContext.userData?.wakeTime,
+      stressLevel: appContext.userData?.stressLevel,
+      sleepQuality: appContext.userData?.sleepQuality,
+      phoneUsageEndTime: appContext.userData?.phoneUsageEndTime,
+      phoneInBed: appContext.userData?.phoneInBed,
+      sleepConsistency: appContext.userData?.sleepConsistency,
+      wakeRestfulness: appContext.userData?.wakeRestfulness,
+      fallAsleepDuration: appContext.userData?.fallAsleepDuration,
+    }),
+    [appContext.userData],
+  );
+
+  const coachMetrics = useMemo(
+    () => ({
+      averageQuality: qualityStats.averageQuality,
+      currentStreak: qualityStats.currentStreak,
+      trend: qualityStats.trend,
+      totalLogs: appContext.sleepLogs.length,
+    }),
+    [
+      appContext.sleepLogs.length,
+      qualityStats.averageQuality,
+      qualityStats.currentStreak,
+      qualityStats.trend,
+    ],
+  );
 
   useEffect(() => {
     if (isRecording) {
@@ -132,11 +164,11 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
     setChatError(null);
 
     try {
-      const response = await sendChatMessage(`${trimmed}\n\n${baseContextHint}`);
+      const response = await generateSleepCoachReply(trimmed, coachProfile, coachMetrics);
       appendMessage({
         id: `msg-coach-${Date.now()}`,
         role: 'coach',
-        content: response.ai_response,
+        content: response,
         timestamp: Date.now(),
         type: 'text',
       });
@@ -146,27 +178,27 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [appendMessage, baseContextHint, inputValue, isLoading]);
+  }, [appendMessage, coachMetrics, coachProfile, inputValue, isLoading]);
 
   const handleStartRecording = useCallback(async () => {
     try {
       const microphoneStatus = await permissionsService.checkMicrophonePermissionStatus();
       if (microphoneStatus === 'denied') {
-        Alert.alert('Permissão de microfone', 'Ative o microfone nas configurações do app para gravar áudio.');
+        Alert.alert('Permissao de microfone', 'Ative o microfone nas configuracoes do app para gravar audio.');
         return;
       }
 
       if (microphoneStatus === 'unknown') {
         const requested = await permissionsService.requestMicrophonePermission();
         if (requested !== 'granted') {
-          Alert.alert('Permissão de microfone', 'Não foi possível iniciar a gravação sem acesso ao microfone.');
+          Alert.alert('Permissao de microfone', 'Nao foi possivel iniciar a gravacao sem acesso ao microfone.');
           return;
         }
       }
 
       const started = await audioService.startRecording();
       if (!started) {
-        Alert.alert('Erro', 'Falha ao iniciar gravação.');
+        Alert.alert('Erro', 'Falha ao iniciar gravacao.');
         return;
       }
 
@@ -175,7 +207,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
       setChatError(null);
     } catch (error) {
       console.error('[SleepCoach] Error starting recording:', error);
-      Alert.alert('Erro', 'Não foi possível iniciar a gravação.');
+      Alert.alert('Erro', 'Nao foi possivel iniciar a gravacao.');
     }
   }, []);
 
@@ -184,7 +216,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
       const userMessage: CoachMessage = {
         id: `msg-audio-${Date.now()}`,
         role: 'user',
-        content: `Mensagem de áudio (${audioService.formatDuration(recording.duration)})`,
+        content: `Mensagem de audio (${audioService.formatDuration(recording.duration)})`,
         timestamp: Date.now(),
         audio: {
           id: recording.id,
@@ -200,23 +232,28 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
 
       try {
         const audioBase64 = await FileSystem.readAsStringAsync(recording.uri, { encoding: 'base64' });
-        const response = await sendChatAudio(audioBase64, 'audio.m4a');
+        const response = await generateSleepCoachAudioReply(
+          audioBase64,
+          'audio.m4a',
+          coachProfile,
+          coachMetrics,
+        );
 
         appendMessage({
           id: `msg-coach-audio-${Date.now()}`,
           role: 'coach',
-          content: response.ai_response,
+          content: response,
           timestamp: Date.now(),
           type: 'text',
         });
       } catch (error: any) {
         console.error('[SleepCoach] Error sending audio:', error);
-        setChatError(error.message || 'Falha ao enviar áudio.');
+        setChatError(error.message || 'Falha ao enviar audio.');
       } finally {
         setIsLoading(false);
       }
     },
-    [appendMessage],
+    [appendMessage, coachMetrics, coachProfile],
   );
 
   const handleStopRecording = useCallback(async () => {
@@ -227,14 +264,14 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
 
       if (!audioService.isValidAudio(recording)) {
         await audioService.deleteAudio(recording.uri);
-        Alert.alert('Áudio curto', 'Grave pelo menos 1 segundo para enviar.');
+        Alert.alert('Audio curto', 'Grave pelo menos 1 segundo para enviar.');
         return;
       }
 
       await handleSendAudio(recording);
     } catch (error) {
       console.error('[SleepCoach] Error stopping recording:', error);
-      Alert.alert('Erro', 'Falha ao finalizar gravação.');
+      Alert.alert('Erro', 'Falha ao finalizar gravacao.');
     }
   }, [handleSendAudio]);
 
@@ -251,18 +288,19 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
   const handleToggleAudioPlayback = useCallback(
     async (message: CoachMessage) => {
       if (!message.audio) return;
+      const { audio } = message;
 
       try {
-        if (playingAudioId === message.audio.id) {
-          await audioService.pauseAudio(message.audio.id);
+        if (playingAudioId === audio.id) {
+          await audioService.pauseAudio(audio.id);
           setPlayingAudioId(null);
           return;
         }
 
-        const success = await audioService.playAudio(message.audio.id, message.audio.uri, message.audio.duration);
+        const success = await audioService.playAudio(audio.id, audio.uri, audio.duration);
         if (success) {
-          setPlayingAudioId(message.audio.id);
-          setAudioProgress((previous) => ({ ...previous, [message.audio!.id]: 0 }));
+          setPlayingAudioId(audio.id);
+          setAudioProgress((previous) => ({ ...previous, [audio.id]: 0 }));
         }
       } catch (error) {
         console.error('[SleepCoach] Error playing audio:', error);
@@ -312,7 +350,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
               </View>
             </Pressable>
           ) : (
-            <Text style={[styles.messageText, { color: isCoach ? theme.colors.text : theme.colors.text }]}>{item.content}</Text>
+            <Text style={[styles.messageText, { color: theme.colors.text }]}>{item.content}</Text>
           )}
 
           <Text style={[styles.timestamp, { color: theme.colors.textSubtle }]}>
@@ -332,7 +370,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
       {
         id: 'initial-coach-message',
         role: 'coach',
-        content: 'Conversa reiniciada. Posso te ajudar a planejar sua próxima noite.',
+        content: 'Conversa reiniciada. Posso te ajudar a planejar sua proxima noite.',
         timestamp: Date.now(),
       },
     ]);
@@ -355,7 +393,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
         {!messages.length ? (
           <EmptyState
             title="Sem mensagens"
-            description="Comece perguntando sobre rotina, consistência ou recuperação do sono."
+            description="Comece perguntando sobre rotina, consistencia ou recuperacao do sono."
             icon="chat"
           />
         ) : (
@@ -371,7 +409,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
           />
         )}
 
-        {isLoading ? <InlineFeedback tone="info" message="Coach processando sua solicitação..." /> : null}
+        {isLoading ? <InlineFeedback tone="info" message="Coach processando sua solicitacao..." /> : null}
 
         {isRecording ? (
           <GlassCard variant="default" contentStyle={styles.recordingCard}>
@@ -381,14 +419,14 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
             </View>
             <View style={styles.recordingActions}>
               <Button title="Cancelar" onPress={handleCancelRecording} variant="ghost" icon="close" />
-              <Button title="Enviar áudio" onPress={handleStopRecording} variant="primary" icon="check" iconPosition="right" />
+              <Button title="Enviar audio" onPress={handleStopRecording} variant="primary" icon="check" iconPosition="right" />
             </View>
           </GlassCard>
         ) : (
           <GlassCard variant="subtle" contentStyle={styles.inputCard}>
             <TextInput
               style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}
-              placeholder="Descreva como foi sua noite ou peça uma sugestão"
+              placeholder="Descreva como foi sua noite ou peca uma sugestao"
               placeholderTextColor={theme.colors.textSubtle}
               multiline
               maxLength={600}
@@ -399,7 +437,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
 
             <View style={styles.inputActions}>
               <Button
-                title="Gravar áudio"
+                title="Gravar audio"
                 onPress={handleStartRecording}
                 disabled={isLoading}
                 variant="secondary"
