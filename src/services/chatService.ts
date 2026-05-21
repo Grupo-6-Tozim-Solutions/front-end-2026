@@ -48,7 +48,8 @@ export const sendChatMessage = async (message: string): Promise<ChatResponse> =>
  */
 export const sendChatAudio = async (
     audioBase64: string,
-    audioFilename: string = 'audio.m4a'
+    audioFilename: string = 'audio.m4a',
+    message?: string
 ): Promise<ChatResponse> => {
     try {
         console.log(logPrefix('ChatService') + 'Sending audio message...');
@@ -58,6 +59,7 @@ export const sendChatAudio = async (
         const request: ChatRequest = {
             audio_base64: audioBase64,
             audio_filename: audioFilename,
+            message,
         };
 
         console.log(logPrefix('ChatService') + 'Making request to /chat/message...');
