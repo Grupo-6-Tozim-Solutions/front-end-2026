@@ -20,10 +20,15 @@
     "axios": "^1.15.2",
     "expo": "~54.0.33",
     "expo-av": "~16.0.8",
+<<<<<<< HEAD
     "expo-blur": "~14.1.5",
     "expo-device": "~8.0.10",
     "expo-file-system": "~18.1.11",
     "expo-location": "~19.0.8",
+=======
+    "expo-device": "~6.0.2",
+    "expo-location": "^55.1.8",
+>>>>>>> notificações-acordar-dormit
     "expo-status-bar": "~3.0.9",
     "phosphor-react-native": "^1.1.2",
     "react": "19.1.0",

@@ -2,8 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
+<<<<<<< HEAD
 import { AppModal, AppScreen, Button, GlassCard, Header, ListItem } from '../components/ui';
 import { EmptyState, InlineFeedback } from '../components/states';
+=======
+import { typography, spacing, borderRadius } from '../styles/theme';
+import { RootStackParamList } from '../navigation/AppNavigator';
+import { translations } from '../languages/pt';
+>>>>>>> notificações-acordar-dormit
 
 interface ProfileScreenProps {
   navigation?: any;
@@ -83,9 +89,66 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = () => {
             <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Qualidade média</Text>
             <Text style={[styles.statValue, { color: theme.colors.text }]}>{quickStats.averageQuality}/10</Text>
           </View>
+<<<<<<< HEAD
           <View style={[styles.statItem, { borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface }]}> 
             <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Pendências</Text>
             <Text style={[styles.statValue, { color: theme.colors.text }]}>{quickStats.pendingSync}</Text>
+=======
+
+          {/* Phone Usage End Time */}
+          <View style={[styles.infoRow, styles.infoRowBorder]}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              Fim do Uso de Celular
+            </Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
+              {userData.phoneUsageEndTime}
+            </Text>
+          </View>
+
+          {/* Phone in Bed */}
+          <View style={[styles.infoRow, styles.infoRowBorder]}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              Celular na Cama
+            </Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
+              {userData.phoneInBed}
+            </Text>
+          </View>
+
+          {/* Bed Time */}
+          <View style={[styles.infoRow, styles.infoRowBorder]}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              Horário de Dormir
+            </Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
+              {userData.bedTime}
+            </Text>
+          </View>
+
+          {/* Wake Time */}
+          <View style={[styles.infoRow, styles.infoRowBorder]}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              Horário de Acordar
+            </Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
+              {userData.wakeTime}
+            </Text>
+          </View>
+
+          {/* Stress Level */}
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              Nível de Estresse
+            </Text>
+            <View style={styles.stressLevelContainer}>
+              <Text style={styles.stressEmoji}>
+                {getStressLevelEmoji(userData.stressLevel)}
+              </Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {userData.stressLevel}/10
+              </Text>
+            </View>
+>>>>>>> notificações-acordar-dormit
           </View>
         </View>
 

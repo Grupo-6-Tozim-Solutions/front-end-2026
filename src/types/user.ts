@@ -56,6 +56,8 @@ export interface AppContextType {
   isLoading: boolean;
   syncQueue: SleepLog[]; // fila de logs pendentes de envio
   globalQualityAverage: number; // global benchmark (e.g., 7.2)
+  notificationModalVisible: boolean;
+  currentNotificationType: 'bed_reminder' | 'wake_reminder' | null;
   
   // Actions
   setOnboarded: (value: boolean) => Promise<void>;
@@ -68,6 +70,8 @@ export interface AppContextType {
   loadGlobalMetrics: () => Promise<void>;
   userQualityStats: () => SleepQualityMetrics;
   clearAllData: () => Promise<void>;
+  showNotificationModal: (type: 'bed_reminder' | 'wake_reminder') => void;
+  closeNotificationModal: () => void;
 }
 
 export interface DeviceData {
