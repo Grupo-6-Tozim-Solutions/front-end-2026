@@ -10,8 +10,18 @@ import {
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
-import { typography, spacing, borderRadius } from '../styles/theme';
+import { theme } from '../styles/theme';
 import { SliderInput } from './SliderInput';
+
+const spacing = theme.spacing;
+const borderRadius = theme.radius;
+const typography = {
+  title: theme.typography.size.title,
+  subtitle: theme.typography.size.subtitle,
+  body: theme.typography.size.body,
+  caption: theme.typography.size.caption,
+  small: theme.typography.size.small,
+};
 
 interface SleepNotificationModalProps {
   visible: boolean;
@@ -172,7 +182,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
             styles.modalContainer,
             {
               backgroundColor: colors.surface,
-              borderColor: colors.cardBorder,
+              borderColor: colors.border,
             },
           ]}
         >
@@ -184,7 +194,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                 <Text style={[styles.modalTitle, { color: colors.text }]}>
                   Hora de Dormir?
                 </Text>
-                <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
+                <Text style={[styles.modalDescription, { color: colors.textMuted }]}>
                   Você está indo dormir agora?
                 </Text>
 
@@ -195,8 +205,8 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                       styles.bedResponseButton,
                       {
                         backgroundColor:
-                          isGoingToBed === true ? colors.primary : colors.surface,
-                        borderColor: colors.primary,
+                          isGoingToBed === true ? colors.accent : colors.surface,
+                        borderColor: colors.accent,
                         borderWidth: isGoingToBed === true ? 0 : 2,
                       },
                     ]}
@@ -208,7 +218,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                         styles.bedResponseButtonText,
                         {
                           color:
-                            isGoingToBed === true ? 'white' : colors.primary,
+                            isGoingToBed === true ? 'white' : colors.accent,
                         },
                       ]}
                     >
@@ -250,7 +260,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                 <Text style={[styles.modalTitle, { color: colors.text }]}>
                   Como Dormiu?
                 </Text>
-                <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
+                <Text style={[styles.modalDescription, { color: colors.textMuted }]}>
                   Registre os dados do seu sono
                 </Text>
 
@@ -267,7 +277,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                     max={10}
                     step={1}
                   />
-                  <Text style={[styles.scoreDisplay, { color: colors.primary }]}>
+                  <Text style={[styles.scoreDisplay, { color: colors.accent }]}>
                     {qualityScore}/10
                   </Text>
                 </View>
@@ -283,7 +293,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                         styles.infoBox,
                         {
                           backgroundColor: colors.background,
-                          borderColor: colors.cardBorder,
+                          borderColor: colors.border,
                         },
                       ]}
                     >
@@ -303,7 +313,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                     style={[
                       styles.hoursBox,
                       {
-                        backgroundColor: colors.primary,
+                        backgroundColor: colors.accent,
                       },
                     ]}
                   >
@@ -311,7 +321,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                       {hoursSlept}h
                     </Text>
                   </View>
-                  <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+                  <Text style={[styles.helperText, { color: colors.textMuted }]}>
                     Baseado no horário que você dormiu
                   </Text>
                 </View>
@@ -326,11 +336,11 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                       styles.notesInput,
                       {
                         backgroundColor: colors.background,
-                        borderColor: colors.cardBorder,
+                        borderColor: colors.border,
                       },
                     ]}
                   >
-                    <Text style={[styles.notesText, { color: colors.textSecondary }]}>
+                    <Text style={[styles.notesText, { color: colors.textMuted }]}>
                       Ex: "Dormi bem", "Pesadelo", "Acordei de madrugada", etc.
                     </Text>
                   </View>
@@ -353,7 +363,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
               <TouchableOpacity
                 style={[
                   styles.button,
-                  { backgroundColor: colors.primary },
+                  { backgroundColor: colors.accent },
                 ]}
                 onPress={handleSubmit}
                 disabled={isSubmitting}

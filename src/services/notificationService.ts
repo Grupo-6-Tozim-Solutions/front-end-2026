@@ -1,56 +1,50 @@
-<<<<<<< HEAD
-import PushNotification from 'react-native-push-notification';
-
-class NotificationService {
-  configure() {
-    PushNotification.configure({
-      onNotification: function (notification) {
-        console.log('NOTIFICAÇÃO:', notification);
-      },
-      requestPermissions: true,
-    });
-  }
-
-  agendar(data: Date, mensagem: string) {
-    PushNotification.localNotificationSchedule({
-      message: mensagem,
-      date: data,
-      allowWhileIdle: true,
-    });
-  }
-}
-
-export const notificationService = new NotificationService();
-=======
 /**
  * Notification Service
- * Handles local push notifications for sleep reminders
+ * Handles local notifications for sleep reminders.
  */
 
 import * as Notifications from 'expo-notifications';
-import { SleepLog } from '../types/user';
+import { isNotificationsEnabled } from '../config/environment';
 
-// Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false, // Desabilitado para Expo Go
-    shouldSetBadge: false, // Desabilitado para Expo Go
-  }),
-});
+let notificationHandlerConfigured = false;
+
+const ensureNotificationHandlerConfigured = () => {
+  if (!isNotificationsEnabled || notificationHandlerConfigured) {
+    return;
+  }
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+
+  notificationHandlerConfigured = true;
+};
 
 export interface SleepNotification {
   type: 'bed_reminder' | 'wake_reminder';
   title: string;
   body: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 /**
- * Request notification permissions
+ * Request notification permissions (native production only).
  */
 export const requestNotificationPermissions = async (): Promise<boolean> => {
+  if (!isNotificationsEnabled) {
+    console.log('[NotificationService] Notifications disabled for this environment.');
+    return false;
+  }
+
   try {
+    ensureNotificationHandlerConfigured();
+
     const { status } = await Notifications.requestPermissionsAsync({
       ios: {
         allowAlert: true,
@@ -58,38 +52,33 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
         allowSound: false,
       },
     });
+
     console.log('[NotificationService] Permissions status:', status);
     return status === 'granted';
   } catch (error) {
-    console.warn('[NotificationService] Error requesting permissions (Expo Go limitation):', error);
-    return true; // Assume permissions granted for Expo Go
+    console.warn('[NotificationService] Error requesting permissions:', error);
+    return false;
   }
 };
 
 /**
- * Schedule a bed time reminder notification
- * @param bedTime - Time in HH:MM format (e.g., "23:00")
- * @param notificationId - Unique ID for this scheduled notification
+ * Schedule a bed time reminder notification.
  */
 export const scheduleBedReminder = async (
   bedTime: string,
   notificationId: string
 ): Promise<string | null> => {
+  if (!isNotificationsEnabled) {
+    return null;
+  }
+
   try {
-    const [hours, minutes] = bedTime.split(':').map(Number);
-
-    // Calculate seconds until bedTime tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(hours, minutes, 0, 0);
-
-    const now = new Date();
-    const seconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
+    ensureNotificationHandlerConfigured();
 
     const scheduledNotificationId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🛏️ Hora de Dormir',
-        body: `Você está indo dormir? Toque para registrar.`,
+        title: 'Hora de Dormir',
+        body: 'Voce esta indo dormir? Toque para registrar.',
         data: {
           type: 'bed_reminder',
           bedTime,
@@ -105,8 +94,12 @@ export const scheduleBedReminder = async (
       scheduledNotificationId
     );
 
-    // Save scheduled notification ID to storage
-    await saveScheduledNotification(notificationId, scheduledNotificationId, bedTime, 'bed');
+    await saveScheduledNotification(
+      notificationId,
+      scheduledNotificationId,
+      bedTime,
+      'bed'
+    );
 
     return scheduledNotificationId;
   } catch (error) {
@@ -116,29 +109,23 @@ export const scheduleBedReminder = async (
 };
 
 /**
- * Schedule a wake time reminder notification
- * @param wakeTime - Time in HH:MM format (e.g., "07:00")
- * @param notificationId - Unique ID for this scheduled notification
+ * Schedule a wake time reminder notification.
  */
 export const scheduleWakeReminder = async (
   wakeTime: string,
   notificationId: string
 ): Promise<string | null> => {
+  if (!isNotificationsEnabled) {
+    return null;
+  }
+
   try {
-    const [hours, minutes] = wakeTime.split(':').map(Number);
-
-    // Calculate seconds until wakeTime tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(hours, minutes, 0, 0);
-
-    const now = new Date();
-    const seconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
+    ensureNotificationHandlerConfigured();
 
     const scheduledNotificationId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🌅 Acordar Agora?',
-        body: `Você acordou? Como dormiu? Toque para responder.`,
+        title: 'Acordar Agora?',
+        body: 'Voce acordou? Como dormiu? Toque para responder.',
         data: {
           type: 'wake_reminder',
           wakeTime,
@@ -154,8 +141,12 @@ export const scheduleWakeReminder = async (
       scheduledNotificationId
     );
 
-    // Save scheduled notification ID to storage
-    await saveScheduledNotification(notificationId, scheduledNotificationId, wakeTime, 'wake');
+    await saveScheduledNotification(
+      notificationId,
+      scheduledNotificationId,
+      wakeTime,
+      'wake'
+    );
 
     return scheduledNotificationId;
   } catch (error) {
@@ -165,11 +156,15 @@ export const scheduleWakeReminder = async (
 };
 
 /**
- * Cancel a scheduled notification by ID
+ * Cancel a scheduled notification by ID.
  */
 export const cancelNotification = async (notificationId: string): Promise<void> => {
+  if (!isNotificationsEnabled) {
+    return;
+  }
+
   try {
-    await Notifications.dismissNotificationAsync(notificationId);
+    await Notifications.cancelScheduledNotificationAsync(notificationId);
     console.log('[NotificationService] Notification cancelled:', notificationId);
   } catch (error) {
     console.error('[NotificationService] Error cancelling notification:', error);
@@ -177,9 +172,13 @@ export const cancelNotification = async (notificationId: string): Promise<void> 
 };
 
 /**
- * Cancel all scheduled notifications
+ * Cancel all scheduled notifications.
  */
 export const cancelAllNotifications = async (): Promise<void> => {
+  if (!isNotificationsEnabled) {
+    return;
+  }
+
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
     console.log('[NotificationService] All notifications cancelled');
@@ -189,9 +188,13 @@ export const cancelAllNotifications = async (): Promise<void> => {
 };
 
 /**
- * Get all scheduled notifications
+ * Get all scheduled notifications.
  */
 export const getScheduledNotifications = async (): Promise<Notifications.NotificationRequest[]> => {
+  if (!isNotificationsEnabled) {
+    return [];
+  }
+
   try {
     return await Notifications.getAllScheduledNotificationsAsync();
   } catch (error) {
@@ -201,20 +204,28 @@ export const getScheduledNotifications = async (): Promise<Notifications.Notific
 };
 
 /**
- * Re-schedule all notifications for user
- * Call this when user updates bed/wake times
+ * Re-schedule all notifications for user.
+ * Call this when user updates bed/wake times.
  */
 export const rescheduleAllNotifications = async (
   bedTime: string,
   wakeTime: string
 ): Promise<{ bed: string | null; wake: string | null }> => {
+  if (!isNotificationsEnabled) {
+    return { bed: null, wake: null };
+  }
+
   try {
-    // Cancel existing notifications
     await cancelAllNotifications();
 
-    // Schedule new ones
-    const bedNotifId = await scheduleBedReminder(bedTime, `bed_${new Date().getTime()}`);
-    const wakeNotifId = await scheduleWakeReminder(wakeTime, `wake_${new Date().getTime()}`);
+    const bedNotifId = await scheduleBedReminder(
+      bedTime,
+      `bed_${new Date().getTime()}`
+    );
+    const wakeNotifId = await scheduleWakeReminder(
+      wakeTime,
+      `wake_${new Date().getTime()}`
+    );
 
     return {
       bed: bedNotifId,
@@ -227,7 +238,7 @@ export const rescheduleAllNotifications = async (
 };
 
 /**
- * Save scheduled notification to local storage (for reference)
+ * Save scheduled notification reference.
  */
 const saveScheduledNotification = async (
   id: string,
@@ -236,9 +247,8 @@ const saveScheduledNotification = async (
   type: 'bed' | 'wake'
 ): Promise<void> => {
   try {
-    // This could be extended to save to AsyncStorage if needed
     console.log(
-      `[NotificationService] Saved ${type} notification: ${id} → ${scheduledId} at ${time}`
+      `[NotificationService] Saved ${type} notification: ${id} -> ${scheduledId} at ${time}`
     );
   } catch (error) {
     console.error('[NotificationService] Error saving notification:', error);
@@ -246,22 +256,31 @@ const saveScheduledNotification = async (
 };
 
 /**
- * Listen for notification responses (when user taps notification)
+ * Listen for notification responses (when user taps notification).
  */
 export const addNotificationResponseListener = (
   callback: (response: Notifications.NotificationResponse) => void
 ): (() => void) => {
+  if (!isNotificationsEnabled) {
+    return () => undefined;
+  }
+
+  ensureNotificationHandlerConfigured();
   const subscription = Notifications.addNotificationResponseReceivedListener(callback);
   return () => subscription.remove();
 };
 
 /**
- * Listen for notifications received while app is in foreground
+ * Listen for notifications received while app is in foreground.
  */
 export const addNotificationReceivedListener = (
   callback: (notification: Notifications.Notification) => void
 ): (() => void) => {
+  if (!isNotificationsEnabled) {
+    return () => undefined;
+  }
+
+  ensureNotificationHandlerConfigured();
   const subscription = Notifications.addNotificationReceivedListener(callback);
   return () => subscription.remove();
 };
->>>>>>> notificações-acordar-dormit

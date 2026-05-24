@@ -1,14 +1,33 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
-import { UserProfile, SleepLog, AppContextType, SleepQualityMetrics } from '../types/user';
-import { submitOnboarding, submitSleepLog, getSyncQueue, getGlobalSleepQualityAverage } from '../services/api';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
+import {
+  UserProfile,
+  SleepLog,
+  AppContextType,
+  SleepQualityMetrics,
+} from '../types/user';
+import {
+  submitOnboarding,
+  submitSleepLog,
+  getGlobalSleepQualityAverage,
+} from '../services/api';
 import { calculateSleepQualityMetrics } from '../utils/sleepQualityCalculations';
 import {
   requestNotificationPermissions,
   rescheduleAllNotifications,
   cancelAllNotifications,
 } from '../services/notificationService';
+import {
+  appEnvironment,
+  isNotificationsEnabled,
+  isWebPlatform,
+} from '../config/environment';
+import { appStorage } from '../services/appStorage';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -28,10 +47,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isLoading, setIsLoading] = useState(true);
 
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
-  const [currentNotificationType, setCurrentNotificationType] = useState<'bed_reminder' | 'wake_reminder' | null>(null);
+  const [currentNotificationType, setCurrentNotificationType] = useState<
+    'bed_reminder' | 'wake_reminder' | null
+  >(null);
 
   const [globalQualityAverage, setGlobalQualityAverage] = useState(0);
-
 
   // ===== Load Data on App Start =====
   useEffect(() => {
@@ -54,20 +74,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadUserData = async () => {
     try {
       setIsLoading(true);
-      const [onboardedStr, userData, sleepLogsStr, queueStr, globalAvgStr] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.IS_ONBOARDED),
-        AsyncStorage.getItem(STORAGE_KEYS.USER_DATA),
-        AsyncStorage.getItem(STORAGE_KEYS.SLEEP_LOGS),
-        AsyncStorage.getItem(STORAGE_KEYS.SYNC_QUEUE),
-        AsyncStorage.getItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG),
-      ]);
+      const [onboardedStr, userDataStr, sleepLogsStr, queueStr, globalAvgStr] =
+        await Promise.all([
+          appStorage.getItem(STORAGE_KEYS.IS_ONBOARDED),
+          appStorage.getItem(STORAGE_KEYS.USER_DATA),
+          appStorage.getItem(STORAGE_KEYS.SLEEP_LOGS),
+          appStorage.getItem(STORAGE_KEYS.SYNC_QUEUE),
+          appStorage.getItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG),
+        ]);
 
       if (onboardedStr === 'true') {
         setIsOnboarded(true);
       }
 
-      if (userData) {
-        setUserData(JSON.parse(userData));
+      if (userDataStr) {
+        setUserData(JSON.parse(userDataStr));
       }
 
       if (sleepLogsStr) {
@@ -93,7 +114,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const average = await getGlobalSleepQualityAverage();
       setGlobalQualityAverage(average);
-      await AsyncStorage.setItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG, JSON.stringify(average));
+      await appStorage.setItem(
+        STORAGE_KEYS.GLOBAL_QUALITY_AVG,
+        JSON.stringify(average)
+      );
     } catch (error) {
       console.error('Error loading global metrics:', error);
     }
@@ -101,14 +125,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // ===== Initialize Notifications =====
   const initializeNotifications = async () => {
+    if (!isNotificationsEnabled) {
+      console.log(
+        `[AppContext] Notifications disabled (env=${appEnvironment}, web=${isWebPlatform}).`
+      );
+      return;
+    }
+
     try {
       const hasPermission = await requestNotificationPermissions();
       if (hasPermission) {
         console.log('[AppContext] Notifications initialized');
-        console.log('[AppContext] ⚠️ Note: Using Expo Go with limited notification features. For full functionality, use development build.');
       }
     } catch (error) {
-      console.warn('[AppContext] Notifications may have limited features in Expo Go:', error);
+      console.warn('[AppContext] Could not initialize notifications:', error);
     }
   };
 
@@ -133,7 +163,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const setOnboarded = async (value: boolean) => {
     try {
       setIsOnboarded(value);
-      await AsyncStorage.setItem(STORAGE_KEYS.IS_ONBOARDED, String(value));
+      await appStorage.setItem(STORAGE_KEYS.IS_ONBOARDED, String(value));
     } catch (error) {
       console.error('Error saving onboarded status:', error);
     }
@@ -143,14 +173,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateUserData = async (data: UserProfile) => {
     try {
       setUserData(data);
-      await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(data));
+      await appStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(data));
 
-      // Schedule notifications for sleep reminders
-      try {
-        await rescheduleAllNotifications(data.bedTime, data.wakeTime);
-        console.log('[AppContext] Notifications scheduled for bed/wake times');
-      } catch (err) {
-        console.warn('[AppContext] Could not schedule notifications:', err);
+      if (isNotificationsEnabled) {
+        // Schedule notifications for sleep reminders
+        try {
+          await rescheduleAllNotifications(data.bedTime, data.wakeTime);
+          console.log('[AppContext] Notifications scheduled for bed/wake times');
+        } catch (err) {
+          console.warn('[AppContext] Could not schedule notifications:', err);
+        }
       }
 
       // Attempt to sync immediately
@@ -176,12 +208,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const updated = [newLog, ...sleepLogs];
       setSleepLogs(updated);
-      await AsyncStorage.setItem(STORAGE_KEYS.SLEEP_LOGS, JSON.stringify(updated));
+      await appStorage.setItem(STORAGE_KEYS.SLEEP_LOGS, JSON.stringify(updated));
 
       // Add to sync queue
-      const updated_queue = [newLog, ...syncQueue];
-      setSyncQueue(updated_queue);
-      await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(updated_queue));
+      const updatedQueue = [newLog, ...syncQueue];
+      setSyncQueue(updatedQueue);
+      await appStorage.setItem(
+        STORAGE_KEYS.SYNC_QUEUE,
+        JSON.stringify(updatedQueue)
+      );
 
       // Try sync immediately
       await syncWithBackend();
@@ -193,20 +228,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ===== Update existing sleep log =====
   const updateSleepLog = async (id: string, partial: Partial<SleepLog>) => {
     try {
-      const updated = sleepLogs.map(log =>
-        log.id === id ? { ...log, ...partial, syncStatus: 'pending' as const } : log
+      const updated = sleepLogs.map((log) =>
+        log.id === id
+          ? { ...log, ...partial, syncStatus: 'pending' as const }
+          : log
       );
       setSleepLogs(updated);
-      await AsyncStorage.setItem(STORAGE_KEYS.SLEEP_LOGS, JSON.stringify(updated));
+      await appStorage.setItem(STORAGE_KEYS.SLEEP_LOGS, JSON.stringify(updated));
 
       // Schedule resync
-      const queueItem = updated.find(l => l.id === id);
+      const queueItem = updated.find((log) => log.id === id);
       if (queueItem) {
-        const toQueue = syncQueue.some(l => l.id === id)
-          ? syncQueue.map(l => (l.id === id ? queueItem : l))
+        const toQueue = syncQueue.some((log) => log.id === id)
+          ? syncQueue.map((log) => (log.id === id ? queueItem : log))
           : [queueItem, ...syncQueue];
         setSyncQueue(toQueue);
-        await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(toQueue));
+        await appStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(toQueue));
       }
 
       await syncWithBackend();
@@ -218,14 +255,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ===== Delete sleep log =====
   const deleteSleepLog = async (id: string) => {
     try {
-      const updated = sleepLogs.filter(log => log.id !== id);
+      const updated = sleepLogs.filter((log) => log.id !== id);
       setSleepLogs(updated);
-      await AsyncStorage.setItem(STORAGE_KEYS.SLEEP_LOGS, JSON.stringify(updated));
+      await appStorage.setItem(STORAGE_KEYS.SLEEP_LOGS, JSON.stringify(updated));
 
       // Remove from queue
-      const queueUpdated = syncQueue.filter(log => log.id !== id);
+      const queueUpdated = syncQueue.filter((log) => log.id !== id);
       setSyncQueue(queueUpdated);
-      await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(queueUpdated));
+      await appStorage.setItem(
+        STORAGE_KEYS.SYNC_QUEUE,
+        JSON.stringify(queueUpdated)
+      );
     } catch (error) {
       console.error('Error deleting sleep log:', error);
     }
@@ -233,23 +273,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // ===== Sync pending items with backend (retry logic) =====
   const syncWithBackend = async () => {
-    if (syncQueue.length === 0) return;
+    if (syncQueue.length === 0) {
+      return;
+    }
 
     try {
       for (const log of syncQueue) {
         try {
           await submitSleepLog(log);
+
           // Mark as synced locally
-          const updated = sleepLogs.map(l =>
-            l.id === log.id ? { ...l, syncStatus: 'synced' as const } : l
+          const updated = sleepLogs.map((item) =>
+            item.id === log.id ? { ...item, syncStatus: 'synced' as const } : item
           );
           setSleepLogs(updated);
-          await AsyncStorage.setItem(STORAGE_KEYS.SLEEP_LOGS, JSON.stringify(updated));
+          await appStorage.setItem(
+            STORAGE_KEYS.SLEEP_LOGS,
+            JSON.stringify(updated)
+          );
 
           // Remove from queue
-          const queueUpdated = syncQueue.filter(l => l.id !== log.id);
+          const queueUpdated = syncQueue.filter((item) => item.id !== log.id);
           setSyncQueue(queueUpdated);
-          await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(queueUpdated));
+          await appStorage.setItem(
+            STORAGE_KEYS.SYNC_QUEUE,
+            JSON.stringify(queueUpdated)
+          );
         } catch (err) {
           console.warn(`Failed to sync log ${log.id}, will retry:`, err);
           // Keep in queue, will retry next interval
@@ -267,12 +316,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUserData(null);
       setSleepLogs([]);
       setSyncQueue([]);
+
+      if (isNotificationsEnabled) {
+        await cancelAllNotifications();
+      }
+
       await Promise.all([
-        AsyncStorage.removeItem(STORAGE_KEYS.IS_ONBOARDED),
-        AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA),
-        AsyncStorage.removeItem(STORAGE_KEYS.SLEEP_LOGS),
-        AsyncStorage.removeItem(STORAGE_KEYS.SYNC_QUEUE),
-        AsyncStorage.removeItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG),
+        appStorage.removeItem(STORAGE_KEYS.IS_ONBOARDED),
+        appStorage.removeItem(STORAGE_KEYS.USER_DATA),
+        appStorage.removeItem(STORAGE_KEYS.SLEEP_LOGS),
+        appStorage.removeItem(STORAGE_KEYS.SYNC_QUEUE),
+        appStorage.removeItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG),
       ]);
     } catch (error) {
       console.error('Error clearing data:', error);

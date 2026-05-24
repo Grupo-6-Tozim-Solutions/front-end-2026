@@ -1,35 +1,37 @@
-<<<<<<< HEAD
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-=======
-import React, { useEffect } from 'react';
-import * as Notifications from 'expo-notifications';
->>>>>>> notificações-acordar-dormit
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { AppProvider, useAppContext } from './src/contexts/AppContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
-import { SleepNotificationModal, NotificationResponse } from './src/components/SleepNotificationModal';
+import {
+  SleepNotificationModal,
+  NotificationResponse,
+} from './src/components/SleepNotificationModal';
+import { addNotificationResponseListener } from './src/services/notificationService';
+import { isNotificationsEnabled } from './src/config/environment';
 
 function AppContent() {
   const appContext = useAppContext();
 
-  // Listen for notification taps
   useEffect(() => {
-    try {
-      const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        const notificationType = response.notification.request.content.data?.type;
-        
-        if (notificationType === 'bed_reminder' || notificationType === 'wake_reminder') {
-          appContext.showNotificationModal(notificationType);
-        }
-      });
-
-      return () => subscription.remove();
-    } catch (error) {
-      console.warn('[App] Notification listener not available in Expo Go:', error);
+    if (!isNotificationsEnabled) {
+      return;
     }
-  }, [appContext]);
+
+    const unsubscribe = addNotificationResponseListener((response) => {
+      const notificationType = response.notification.request.content.data?.type;
+
+      if (
+        notificationType === 'bed_reminder' ||
+        notificationType === 'wake_reminder'
+      ) {
+        appContext.showNotificationModal(notificationType);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   const handleNotificationResponse = (data: NotificationResponse) => {
     console.log('[App] Notification response:', data);
@@ -38,6 +40,7 @@ function AppContent() {
 
   return (
     <>
+      <StatusBar style="light" />
       <AppNavigator />
       <SleepNotificationModal
         visible={appContext.notificationModalVisible}
@@ -51,21 +54,12 @@ function AppContent() {
 
 export default function App() {
   return (
-<<<<<<< HEAD
     <SafeAreaProvider>
       <AppProvider>
         <ThemeProvider>
-          <StatusBar style="light" />
-          <AppNavigator />
+          <AppContent />
         </ThemeProvider>
       </AppProvider>
     </SafeAreaProvider>
-=======
-    <AppProvider>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
-    </AppProvider>
->>>>>>> notificações-acordar-dormit
   );
 }

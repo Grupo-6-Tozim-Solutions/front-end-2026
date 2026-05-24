@@ -5,17 +5,26 @@
   "build": {
     "development": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "development"
+      },
       "android": {
         "gradleCommand": ":app:assembleDebug"
       }
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production"
+      },
       "android": {
         "buildType": "apk"
       }

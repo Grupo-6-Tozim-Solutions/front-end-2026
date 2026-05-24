@@ -1,7 +1,7 @@
 import * as Device from 'expo-device';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceData } from '../types/user';
 import { Platform } from 'react-native';
+import { appStorage } from './appStorage';
 
 type UsageStatsModule = any;
 
@@ -19,7 +19,7 @@ export const deviceDataService = {
    */
   async getScreenTimeData(): Promise<{ screenTimePerDay?: string; bedTime?: string; wakeTime?: string } | null> {
     try {
-      const raw = await AsyncStorage.getItem('@app_user_data');
+      const raw = await appStorage.getItem('@app_user_data');
       if (!raw) return null;
       const parsed = JSON.parse(raw) as any;
       const result: { screenTimePerDay?: string; bedTime?: string; wakeTime?: string } = {};
