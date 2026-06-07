@@ -67,6 +67,13 @@ export interface AppContextType {
   deleteSleepLog: (id: string) => Promise<void>;
   syncWithBackend: () => Promise<void>;
   loadUserData: () => Promise<void>;
+  getPersistedAppData: () => Promise<{
+    isOnboarded: boolean;
+    userData: UserProfile | null;
+    sleepLogs: SleepLog[];
+    syncQueue: SleepLog[];
+    globalQualityAverage: number;
+  }>;
   loadGlobalMetrics: () => Promise<void>;
   userQualityStats: () => SleepQualityMetrics;
   clearAllData: () => Promise<void>;

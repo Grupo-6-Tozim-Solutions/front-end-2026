@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   KeyboardAvoidingView,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppContext } from '../contexts/AppContext';
 import { audioService } from '../services/audioService';
@@ -20,6 +20,7 @@ import { permissionsService } from '../services/permissions';
 import { CoachMessage } from '../types/coach';
 import { AppIcon, AppScreen, Button, GlassCard, Header } from '../components/ui';
 import { EmptyState, ErrorState, InlineFeedback } from '../components/states';
+import { calculateSleepQualityMetrics } from '../utils/sleepQualityCalculations';
 
 interface SleepCoachScreenProps {
   navigation?: any;
@@ -28,6 +29,7 @@ interface SleepCoachScreenProps {
 export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
   const { theme } = useTheme();
   const appContext = useAppContext();
+  const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<CoachMessage[]>([
     {
@@ -51,42 +53,25 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
   const playbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const listRef = useRef<FlatList<CoachMessage>>(null);
 
-  const qualityStats = useMemo(
-    () => appContext.userQualityStats(),
-    [appContext.globalQualityAverage, appContext.sleepLogs],
-  );
+  const buildCoachRequestData = useCallback(async () => {
+    const persistedData = await appContext.getPersistedAppData();
+    const profile = persistedData.userData ?? appContext.userData;
+    const sleepLogs = persistedData.sleepLogs.length ? persistedData.sleepLogs : appContext.sleepLogs;
+    const globalQualityAverage = persistedData.globalQualityAverage || appContext.globalQualityAverage;
+    const qualityStats = calculateSleepQualityMetrics(sleepLogs, globalQualityAverage, 7);
 
-  const coachProfile = useMemo(
-    () => ({
-      age: appContext.userData?.age,
-      gender: appContext.userData?.gender,
-      bedTime: appContext.userData?.bedTime,
-      wakeTime: appContext.userData?.wakeTime,
-      stressLevel: appContext.userData?.stressLevel,
-      sleepQuality: appContext.userData?.sleepQuality,
-      phoneUsageEndTime: appContext.userData?.phoneUsageEndTime,
-      phoneInBed: appContext.userData?.phoneInBed,
-      sleepConsistency: appContext.userData?.sleepConsistency,
-      wakeRestfulness: appContext.userData?.wakeRestfulness,
-      fallAsleepDuration: appContext.userData?.fallAsleepDuration,
-    }),
-    [appContext.userData],
-  );
-
-  const coachMetrics = useMemo(
-    () => ({
-      averageQuality: qualityStats.averageQuality,
-      currentStreak: qualityStats.currentStreak,
-      trend: qualityStats.trend,
-      totalLogs: appContext.sleepLogs.length,
-    }),
-    [
-      appContext.sleepLogs.length,
-      qualityStats.averageQuality,
-      qualityStats.currentStreak,
-      qualityStats.trend,
-    ],
-  );
+    return {
+      coachProfile: profile ? { ...profile } : {},
+      coachMetrics: {
+        averageQuality: qualityStats.averageQuality,
+        currentStreak: qualityStats.currentStreak,
+        trend: qualityStats.trend,
+        totalLogs: sleepLogs.length,
+        globalQualityAverage,
+      },
+      sleepLogs,
+    };
+  }, [appContext]);
 
   useEffect(() => {
     if (isRecording) {
@@ -164,7 +149,13 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
     setChatError(null);
 
     try {
-      const response = await generateSleepCoachReply(trimmed, coachProfile, coachMetrics);
+      const coachData = await buildCoachRequestData();
+      const response = await generateSleepCoachReply(
+        trimmed,
+        coachData.coachProfile,
+        coachData.coachMetrics,
+        coachData.sleepLogs,
+      );
       appendMessage({
         id: `msg-coach-${Date.now()}`,
         role: 'coach',
@@ -178,7 +169,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [appendMessage, coachMetrics, coachProfile, inputValue, isLoading]);
+  }, [appendMessage, buildCoachRequestData, inputValue, isLoading]);
 
   const handleStartRecording = useCallback(async () => {
     try {
@@ -232,11 +223,13 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
 
       try {
         const audioBase64 = await FileSystem.readAsStringAsync(recording.uri, { encoding: 'base64' });
+        const coachData = await buildCoachRequestData();
         const response = await generateSleepCoachAudioReply(
           audioBase64,
           'audio.m4a',
-          coachProfile,
-          coachMetrics,
+          coachData.coachProfile,
+          coachData.coachMetrics,
+          coachData.sleepLogs,
         );
 
         appendMessage({
@@ -253,7 +246,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
         setIsLoading(false);
       }
     },
-    [appendMessage, coachMetrics, coachProfile],
+    [appendMessage, buildCoachRequestData],
   );
 
   const handleStopRecording = useCallback(async () => {
@@ -381,7 +374,11 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
 
   return (
     <AppScreen style={styles.screen}>
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={88}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+      >
         <View style={styles.headerWrap}>
           <Header title="Coach do sono" subtitle="Assistente com contexto dos seus dados recentes" icon="chat" />
         </View>
@@ -404,6 +401,7 @@ export const SleepCoachScreen: React.FC<SleepCoachScreenProps> = () => {
             renderItem={renderMessage}
             contentContainerStyle={styles.messagesContent}
             ItemSeparatorComponent={() => <View style={styles.messageSpacer} />}
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             style={styles.messagesList}
           />

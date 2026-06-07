@@ -39,6 +39,17 @@ const STORAGE_KEYS = {
   GLOBAL_QUALITY_AVG: '@app_global_quality_avg',
 };
 
+const parseStoredValue = <T,>(value: string | null, fallback: T): T => {
+  if (!value) return fallback;
+
+  try {
+    return JSON.parse(value) as T;
+  } catch (error) {
+    console.warn('[AppContext] Ignoring invalid persisted value:', error);
+    return fallback;
+  }
+};
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [userData, setUserData] = useState<UserProfile | null>(null);
@@ -71,41 +82,63 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [syncQueue]);
 
   // ===== Load all persisted data =====
+  const readPersistedAppData = async () => {
+    const [onboardedStr, userDataStr, sleepLogsStr, queueStr, globalAvgStr] =
+      await Promise.all([
+        appStorage.getItem(STORAGE_KEYS.IS_ONBOARDED),
+        appStorage.getItem(STORAGE_KEYS.USER_DATA),
+        appStorage.getItem(STORAGE_KEYS.SLEEP_LOGS),
+        appStorage.getItem(STORAGE_KEYS.SYNC_QUEUE),
+        appStorage.getItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG),
+      ]);
+
+    return {
+      isOnboarded: onboardedStr === 'true',
+      userData: parseStoredValue<UserProfile | null>(userDataStr, null),
+      sleepLogs: parseStoredValue<SleepLog[]>(sleepLogsStr, []),
+      syncQueue: parseStoredValue<SleepLog[]>(queueStr, []),
+      globalQualityAverage: parseStoredValue<number>(globalAvgStr, 0),
+    };
+  };
+
   const loadUserData = async () => {
     try {
       setIsLoading(true);
-      const [onboardedStr, userDataStr, sleepLogsStr, queueStr, globalAvgStr] =
-        await Promise.all([
-          appStorage.getItem(STORAGE_KEYS.IS_ONBOARDED),
-          appStorage.getItem(STORAGE_KEYS.USER_DATA),
-          appStorage.getItem(STORAGE_KEYS.SLEEP_LOGS),
-          appStorage.getItem(STORAGE_KEYS.SYNC_QUEUE),
-          appStorage.getItem(STORAGE_KEYS.GLOBAL_QUALITY_AVG),
-        ]);
+      const persistedData = await readPersistedAppData();
 
-      if (onboardedStr === 'true') {
-        setIsOnboarded(true);
-      }
-
-      if (userDataStr) {
-        setUserData(JSON.parse(userDataStr));
-      }
-
-      if (sleepLogsStr) {
-        setSleepLogs(JSON.parse(sleepLogsStr));
-      }
-
-      if (queueStr) {
-        setSyncQueue(JSON.parse(queueStr));
-      }
-
-      if (globalAvgStr) {
-        setGlobalQualityAverage(JSON.parse(globalAvgStr));
-      }
+      setIsOnboarded(persistedData.isOnboarded);
+      setUserData(persistedData.userData);
+      setSleepLogs(persistedData.sleepLogs);
+      setSyncQueue(persistedData.syncQueue);
+      setGlobalQualityAverage(persistedData.globalQualityAverage);
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getPersistedAppData = async () => {
+    try {
+      const persistedData = await readPersistedAppData();
+
+      return {
+        isOnboarded: persistedData.isOnboarded || isOnboarded,
+        userData: persistedData.userData ?? userData,
+        sleepLogs: persistedData.sleepLogs.length ? persistedData.sleepLogs : sleepLogs,
+        syncQueue: persistedData.syncQueue.length ? persistedData.syncQueue : syncQueue,
+        globalQualityAverage: persistedData.globalQualityAverage || globalQualityAverage,
+      };
+    } catch (error) {
+      console.error('Error reading persisted app data:', error);
+
+      return {
+        isOnboarded,
+        userData,
+        sleepLogs,
+        syncQueue,
+        globalQualityAverage,
+      };
     }
   };
 
@@ -219,7 +252,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       );
 
       // Try sync immediately
-      await syncWithBackend();
+      await syncWithBackend(updatedQueue, updated);
     } catch (error) {
       console.error('Error adding sleep log:', error);
     }
@@ -238,15 +271,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Schedule resync
       const queueItem = updated.find((log) => log.id === id);
+      let toQueue = syncQueue;
       if (queueItem) {
-        const toQueue = syncQueue.some((log) => log.id === id)
+        toQueue = syncQueue.some((log) => log.id === id)
           ? syncQueue.map((log) => (log.id === id ? queueItem : log))
           : [queueItem, ...syncQueue];
         setSyncQueue(toQueue);
         await appStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(toQueue));
       }
 
-      await syncWithBackend();
+      await syncWithBackend(toQueue, updated);
     } catch (error) {
       console.error('Error updating sleep log:', error);
     }
@@ -272,32 +306,40 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // ===== Sync pending items with backend (retry logic) =====
-  const syncWithBackend = async () => {
-    if (syncQueue.length === 0) {
+  const syncWithBackend = async (
+    queueOverride?: SleepLog[],
+    sleepLogsOverride?: SleepLog[],
+  ) => {
+    const queueToProcess = queueOverride ?? syncQueue;
+
+    if (queueToProcess.length === 0) {
       return;
     }
 
     try {
-      for (const log of syncQueue) {
+      let latestLogs = sleepLogsOverride ?? sleepLogs;
+      let remainingQueue = queueToProcess;
+
+      for (const log of queueToProcess) {
         try {
           await submitSleepLog(log);
 
           // Mark as synced locally
-          const updated = sleepLogs.map((item) =>
+          latestLogs = latestLogs.map((item) =>
             item.id === log.id ? { ...item, syncStatus: 'synced' as const } : item
           );
-          setSleepLogs(updated);
+          setSleepLogs(latestLogs);
           await appStorage.setItem(
             STORAGE_KEYS.SLEEP_LOGS,
-            JSON.stringify(updated)
+            JSON.stringify(latestLogs)
           );
 
           // Remove from queue
-          const queueUpdated = syncQueue.filter((item) => item.id !== log.id);
-          setSyncQueue(queueUpdated);
+          remainingQueue = remainingQueue.filter((item) => item.id !== log.id);
+          setSyncQueue(remainingQueue);
           await appStorage.setItem(
             STORAGE_KEYS.SYNC_QUEUE,
-            JSON.stringify(queueUpdated)
+            JSON.stringify(remainingQueue)
           );
         } catch (err) {
           console.warn(`Failed to sync log ${log.id}, will retry:`, err);
@@ -351,6 +393,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         deleteSleepLog,
         syncWithBackend,
         loadUserData,
+        getPersistedAppData,
         loadGlobalMetrics,
         userQualityStats,
         clearAllData,

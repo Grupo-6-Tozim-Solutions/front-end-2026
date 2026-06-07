@@ -4,6 +4,7 @@
  */
 
 import { sendChatAudio, sendChatMessage } from './chatService';
+import { SleepLog } from '../types/user';
 
 const SHOW_LOG_PREFIX = process.env.EXPO_PUBLIC_SHOW_LOG_PREFIX !== 'false';
 
@@ -11,7 +12,10 @@ const logPrefix = (service: string): string => {
   return SHOW_LOG_PREFIX ? `[${service}] ` : '';
 };
 
+const COACH_COMPLETION_MARKER = '[FIM_RESPOSTA]';
+
 export interface SleepCoachUserProfile {
+  id?: string;
   age?: string;
   gender?: string;
   bedTime?: string;
@@ -23,6 +27,12 @@ export interface SleepCoachUserProfile {
   sleepConsistency?: string;
   wakeRestfulness?: string;
   fallAsleepDuration?: string;
+  homeZipCode?: string;
+  homeAddress?: string;
+  homeLatitude?: number;
+  homeLongitude?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SleepCoachRecentMetrics {
@@ -30,6 +40,7 @@ export interface SleepCoachRecentMetrics {
   currentStreak: number;
   trend: 'improving' | 'declining' | 'stable';
   totalLogs?: number;
+  globalQualityAverage?: number;
 }
 
 const formatCoachFieldValue = (value?: string | number): string => {
@@ -40,14 +51,120 @@ const formatCoachFieldValue = (value?: string | number): string => {
   return String(value);
 };
 
+const parseCoachNumber = (value?: string): number | null => {
+  if (!value) return null;
+
+  const parsed = Number.parseFloat(value.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const average = (values: number[]): number | null => {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+};
+
+const sortSleepLogsByDateDesc = (sleepLogs: SleepLog[]): SleepLog[] => {
+  return [...sleepLogs].sort((left, right) => {
+    const leftTime = left.timestamp || new Date(left.date).getTime();
+    const rightTime = right.timestamp || new Date(right.date).getTime();
+    return rightTime - leftTime;
+  });
+};
+
+const formatSleepLogForPrompt = (log: SleepLog, index: number): string => {
+  return `${index + 1}. Data: ${formatCoachFieldValue(log.date)}; horas dormidas: ${formatCoachFieldValue(log.hoursSlept)}; dormiu: ${formatCoachFieldValue(log.bedTimeActual)}; acordou: ${formatCoachFieldValue(log.wakeTimeActual)}; qualidade: ${formatCoachFieldValue(log.quality)}; observacoes adicionais: ${formatCoachFieldValue(log.notes)}; status de sincronizacao: ${formatCoachFieldValue(log.syncStatus)}.`;
+};
+
+const buildConsolidatedSleepLogsContext = (sleepLogs: SleepLog[]): string => {
+  if (!sleepLogs.length) {
+    return 'Nenhum registro de sono salvo ate o momento.';
+  }
+
+  const sortedSleepLogs = sortSleepLogsByDateDesc(sleepLogs);
+  const hoursValues = sleepLogs
+    .map((log) => parseCoachNumber(log.hoursSlept))
+    .filter((value): value is number => value !== null);
+  const qualityValues = sleepLogs
+    .map((log) => parseCoachNumber(log.quality))
+    .filter((value): value is number => value !== null);
+  const logsWithNotes = sortedSleepLogs.filter((log) => log.notes?.trim());
+  const recentDetailedLogs = sortedSleepLogs.slice(0, 8).map(formatSleepLogForPrompt).join('\n');
+  const additionalNotes = logsWithNotes.length
+    ? logsWithNotes
+      .map((log) => `- ${formatCoachFieldValue(log.date)}: ${formatCoachFieldValue(log.notes)}`)
+      .join('\n')
+    : 'Nenhuma observacao adicional cadastrada.';
+  const firstLog = sortedSleepLogs[sortedSleepLogs.length - 1];
+  const lastLog = sortedSleepLogs[0];
+
+  return `Resumo consolidado de todos os registros:
+- Total de registros considerados: ${sleepLogs.length}
+- Periodo dos registros: ${formatCoachFieldValue(firstLog?.date)} ate ${formatCoachFieldValue(lastLog?.date)}
+- Media de horas dormidas: ${formatCoachFieldValue(average(hoursValues)?.toFixed(1))}
+- Media de qualidade registrada: ${formatCoachFieldValue(average(qualityValues)?.toFixed(1))}
+- Registros com observacoes adicionais: ${logsWithNotes.length}
+
+Observacoes adicionais cadastradas:
+${additionalNotes}
+
+Registros recentes detalhados:
+${recentDetailedLogs}`;
+};
+
+const stripCoachCompletionMarker = (value: string): string => {
+  return value.replaceAll(COACH_COMPLETION_MARKER, '').trim();
+};
+
+const appendContinuation = (current: string, continuation: string): string => {
+  const cleanContinuation = stripCoachCompletionMarker(continuation);
+  if (!cleanContinuation) return current;
+
+  const normalizedCurrent = current.trim();
+  if (!normalizedCurrent) return cleanContinuation;
+
+  return `${normalizedCurrent}\n${cleanContinuation}`;
+};
+
+const requestCompleteCoachResponse = async (
+  prompt: string,
+  userMessage: string,
+): Promise<string> => {
+  const firstResponse = await sendChatMessage(prompt);
+  let completeResponse = firstResponse.ai_response;
+
+  for (let attempt = 0; attempt < 2 && !completeResponse.includes(COACH_COMPLETION_MARKER); attempt += 1) {
+    console.warn(logPrefix('AIAnalysisService') + 'Coach response missing completion marker, requesting continuation...');
+
+    const continuationPrompt = `A resposta anterior do coach de sono foi interrompida antes do marcador ${COACH_COMPLETION_MARKER}.
+Continue exatamente de onde parou, sem repetir trechos anteriores e sem introducao.
+
+MENSAGEM ORIGINAL DO USUARIO:
+${userMessage}
+
+RESPOSTA PARCIAL:
+${stripCoachCompletionMarker(completeResponse)}
+
+Finalize obrigatoriamente com ${COACH_COMPLETION_MARKER}.`;
+
+    const continuationResponse = await sendChatMessage(continuationPrompt);
+    completeResponse = appendContinuation(completeResponse, continuationResponse.ai_response);
+  }
+
+  return stripCoachCompletionMarker(completeResponse);
+};
+
 const buildSleepCoachContextPrompt = (
   userMessage: string,
   userProfile: SleepCoachUserProfile,
   recentMetrics: SleepCoachRecentMetrics,
+  sleepLogs: SleepLog[] = [],
 ): string => {
+  const sleepLogsContext = buildConsolidatedSleepLogsContext(sleepLogs);
+
   return `Voce e um coach de sono. Use o contexto local do usuario para responder em portugues do Brasil, de forma pratica, acolhedora e objetiva.
 
 PERFIL LOCAL DO USUARIO:
+- ID local: ${formatCoachFieldValue(userProfile.id)}
 - Idade: ${formatCoachFieldValue(userProfile.age)}
 - Genero: ${formatCoachFieldValue(userProfile.gender)}
 - Horario habitual de dormir: ${formatCoachFieldValue(userProfile.bedTime)}
@@ -59,21 +176,34 @@ PERFIL LOCAL DO USUARIO:
 - Consistencia do sono: ${formatCoachFieldValue(userProfile.sleepConsistency)}
 - Sensacao ao acordar: ${formatCoachFieldValue(userProfile.wakeRestfulness)}
 - Tempo para adormecer: ${formatCoachFieldValue(userProfile.fallAsleepDuration)}
+- CEP residencial: ${formatCoachFieldValue(userProfile.homeZipCode)}
+- Endereco residencial: ${formatCoachFieldValue(userProfile.homeAddress)}
+- Latitude residencial: ${formatCoachFieldValue(userProfile.homeLatitude)}
+- Longitude residencial: ${formatCoachFieldValue(userProfile.homeLongitude)}
+- Perfil criado em: ${formatCoachFieldValue(userProfile.createdAt)}
+- Perfil atualizado em: ${formatCoachFieldValue(userProfile.updatedAt)}
 
 METRICAS RECENTES:
 - Qualidade media: ${recentMetrics.averageQuality.toFixed(1)}/10
 - Sequencia atual: ${recentMetrics.currentStreak} dia(s)
 - Tendencia recente: ${recentMetrics.trend}
 - Total de registros locais: ${formatCoachFieldValue(recentMetrics.totalLogs)}
+- Media global de referencia: ${formatCoachFieldValue(recentMetrics.globalQualityAverage)}
+
+REGISTROS DE SONO ARMAZENADOS:
+${sleepLogsContext}
 
 MENSAGEM DO USUARIO:
 ${userMessage}
 
 Ao responder:
-- considere primeiro o perfil e as metricas acima
+- considere primeiro o perfil, as metricas e todos os registros armazenados acima
+- considere as observacoes adicionais dos registros quando existirem
 - entregue orientacoes praticas, personalizadas e realistas
 - nao invente informacoes ausentes
-- se faltar contexto, deixe isso claro de forma breve`;
+- se faltar contexto, deixe isso claro de forma breve
+- responda de forma completa, mas concisa
+- termine obrigatoriamente com ${COACH_COMPLETION_MARKER}`;
 };
 
 /**
@@ -178,16 +308,17 @@ export const generateSleepCoachReply = async (
   userMessage: string,
   userProfile: SleepCoachUserProfile,
   recentMetrics: SleepCoachRecentMetrics,
+  sleepLogs: SleepLog[] = [],
 ): Promise<string> => {
   try {
     console.log(logPrefix('AIAnalysisService') + 'Generating sleep coach reply...');
 
-    const prompt = buildSleepCoachContextPrompt(userMessage, userProfile, recentMetrics);
-    const response = await sendChatMessage(prompt);
+    const prompt = buildSleepCoachContextPrompt(userMessage, userProfile, recentMetrics, sleepLogs);
+    const response = await requestCompleteCoachResponse(prompt, userMessage);
 
     console.log(logPrefix('AIAnalysisService') + 'Sleep coach reply generated successfully');
 
-    return response.ai_response;
+    return response;
   } catch (error) {
     console.error(logPrefix('AIAnalysisService') + 'Error generating sleep coach reply:', error);
     throw new Error('Nao foi possivel processar a mensagem do coach. Tente novamente.');
@@ -199,6 +330,7 @@ export const generateSleepCoachAudioReply = async (
   audioFilename: string,
   userProfile: SleepCoachUserProfile,
   recentMetrics: SleepCoachRecentMetrics,
+  sleepLogs: SleepLog[] = [],
 ): Promise<string> => {
   try {
     console.log(logPrefix('AIAnalysisService') + 'Generating sleep coach audio reply...');
@@ -207,12 +339,28 @@ export const generateSleepCoachAudioReply = async (
       'O usuario enviou uma mensagem de audio. Considere a transcricao gerada automaticamente ao responder.',
       userProfile,
       recentMetrics,
+      sleepLogs,
     );
     const response = await sendChatAudio(audioBase64, audioFilename, prompt);
+    let completeResponse = response.ai_response;
+
+    for (let attempt = 0; attempt < 2 && !completeResponse.includes(COACH_COMPLETION_MARKER); attempt += 1) {
+      console.warn(logPrefix('AIAnalysisService') + 'Coach audio response missing completion marker, requesting continuation...');
+
+      const continuationResponse = await sendChatMessage(`A resposta anterior do coach de sono para uma mensagem de audio foi interrompida antes do marcador ${COACH_COMPLETION_MARKER}.
+Continue exatamente de onde parou, sem repetir trechos anteriores e sem introducao.
+
+RESPOSTA PARCIAL:
+${stripCoachCompletionMarker(completeResponse)}
+
+Finalize obrigatoriamente com ${COACH_COMPLETION_MARKER}.`);
+
+      completeResponse = appendContinuation(completeResponse, continuationResponse.ai_response);
+    }
 
     console.log(logPrefix('AIAnalysisService') + 'Sleep coach audio reply generated successfully');
 
-    return response.ai_response;
+    return stripCoachCompletionMarker(completeResponse);
   } catch (error) {
     console.error(logPrefix('AIAnalysisService') + 'Error generating sleep coach audio reply:', error);
     throw new Error('Nao foi possivel processar o audio do coach. Tente novamente.');
