@@ -245,3 +245,90 @@ export const getGlobalSleepQualityAverage = async (): Promise<number> => {
         return 0;
     }
 };
+
+export interface InsightItem {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  recommendation: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+export interface ComparisonMetrics {
+  user_sleep_hours: number;
+  pop_sleep_hours: number;
+  user_sleep_quality: number;
+  pop_sleep_quality: number;
+  user_stress_level: number;
+  pop_stress_level: number;
+}
+
+export interface InsightsResponseData {
+  insights: InsightItem[];
+  comparison_metrics: ComparisonMetrics;
+}
+
+/**
+ * Fetch personalized AI insights and comparative KPIs from backend API
+ * Sends user profile and sleep logs to POST /insights
+ */
+export const getInsights = async (
+  profile: UserProfile,
+  logs: SleepLog[]
+): Promise<InsightsResponseData> => {
+  try {
+    console.log(`${logPrefix('API')}Fetching sleep insights from /insights...`);
+
+    // Normalize user profile for the backend
+    const profilePayload = {
+      age: profile.age?.toString() || null,
+      gender: profile.gender || null,
+      bedTime: profile.bedTime || null,
+      wakeTime: profile.wakeTime || null,
+      sleepQuality: profile.sleepQuality?.toString() || null,
+      stressLevel: profile.stressLevel?.toString() || null,
+      phoneUsageEndTime: profile.phoneUsageEndTime || null,
+      phoneInBed: profile.phoneInBed || null,
+      sleepConsistency: profile.sleepConsistency || null,
+      wakeRestfulness: profile.wakeRestfulness || null,
+      fallAsleepDuration: profile.fallAsleepDuration || null,
+    };
+
+    // Normalize sleep logs for the backend (hoursSlept and quality must be strings)
+    const logsPayload = logs.map((log) => ({
+      id: log.id || null,
+      date: log.date,
+      hoursSlept: log.hoursSlept?.toString() || '0',
+      bedTimeActual: log.bedTimeActual || null,
+      wakeTimeActual: log.wakeTimeActual || null,
+      notes: log.notes || null,
+      quality: log.quality?.toString() || null,
+      timestamp: log.timestamp || null,
+    }));
+
+    const response = await api.post('/insights', {
+      profile: profilePayload,
+      sleep_logs: logsPayload,
+    });
+
+    const insights = response.data?.insights || [];
+    const comparison_metrics = response.data?.comparison_metrics || {
+      user_sleep_hours: 0,
+      pop_sleep_hours: 0,
+      user_sleep_quality: 0,
+      pop_sleep_quality: 0,
+      user_stress_level: 0,
+      pop_stress_level: 0,
+    };
+    console.log(`${logPrefix('API')}Insights fetched successfully: ${insights.length}`);
+    return {
+      insights,
+      comparison_metrics,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`${logPrefix('API')}Error fetching sleep insights:`, errorMessage);
+    throw error;
+  }
+};

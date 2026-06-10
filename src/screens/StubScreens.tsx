@@ -9,14 +9,6 @@ export const DetailedAnalysisScreen: React.FC = () => (
   />
 );
 
-export const InsightsScreen: React.FC = () => (
-  <StubScreenTemplate
-    icon="brain"
-    title="Insights personalizados"
-    description="Recomendações orientadas por dados para melhorar consistência e recuperação."
-  />
-);
-
 export const ExperimentsScreen: React.FC = () => (
   <StubScreenTemplate
     icon="flame"

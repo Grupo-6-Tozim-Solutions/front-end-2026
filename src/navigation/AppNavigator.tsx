@@ -17,7 +17,8 @@ import { SleepQualityScreen } from '../screens/SleepQualityScreen';
 import { SleepCoachScreen } from '../screens/SleepCoachScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { AlarmScreen } from '../screens/AlarmScreen';
-import { DetailedAnalysisScreen, InsightsScreen } from '../screens/StubScreens';
+import { DetailedAnalysisScreen } from '../screens/StubScreens';
+import { InsightsScreen } from '../screens/InsightsScreen';
 import { WeeklyReportScreen } from '../screens/WeeklyReportScreen';
 
 export type OnboardingStackParamList = {
