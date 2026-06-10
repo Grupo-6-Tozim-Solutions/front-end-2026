@@ -24,6 +24,7 @@ import {
 } from '../services/notificationService';
 import {
   appEnvironment,
+  isDevelopmentEnvironment,
   isNotificationsEnabled,
   isWebPlatform,
 } from '../config/environment';
@@ -48,6 +49,51 @@ const parseStoredValue = <T,>(value: string | null, fallback: T): T => {
     console.warn('[AppContext] Ignoring invalid persisted value:', error);
     return fallback;
   }
+};
+
+const PRESENTATION_SLEEP_LOG_COUNT = 14;
+
+const presentationSleepLogTemplate = [
+  { hoursSlept: '5.0', bedTimeActual: '00:20', wakeTimeActual: '05:20', quality: '5', notes: 'Sono curto e pouco reparador.' },
+  { hoursSlept: '5.4', bedTimeActual: '00:05', wakeTimeActual: '05:29', quality: '5', notes: 'Acordei cansado.' },
+  { hoursSlept: '5.8', bedTimeActual: '23:50', wakeTimeActual: '05:38', quality: '6', notes: 'Noite regular.' },
+  { hoursSlept: '6.1', bedTimeActual: '23:40', wakeTimeActual: '05:46', quality: '6', notes: 'Leve melhora na rotina.' },
+  { hoursSlept: '6.5', bedTimeActual: '23:30', wakeTimeActual: '06:00', quality: '6', notes: 'Ainda acordei um pouco cansado.' },
+  { hoursSlept: '6.8', bedTimeActual: '23:20', wakeTimeActual: '06:08', quality: '7', notes: 'Sono mais estavel.' },
+  { hoursSlept: '7.0', bedTimeActual: '23:10', wakeTimeActual: '06:10', quality: '7', notes: 'Boa recuperacao.' },
+  { hoursSlept: '6.6', bedTimeActual: '23:45', wakeTimeActual: '06:21', quality: '6', notes: 'Demorei para dormir.' },
+  { hoursSlept: '7.2', bedTimeActual: '23:05', wakeTimeActual: '06:17', quality: '7', notes: 'Rotina voltando ao normal.' },
+  { hoursSlept: '7.5', bedTimeActual: '22:55', wakeTimeActual: '06:25', quality: '8', notes: 'Sono mais profundo.' },
+  { hoursSlept: '7.7', bedTimeActual: '22:50', wakeTimeActual: '06:32', quality: '8', notes: 'Acordei disposto.' },
+  { hoursSlept: '8.0', bedTimeActual: '22:45', wakeTimeActual: '06:45', quality: '9', notes: 'Excelente noite.' },
+  { hoursSlept: '7.4', bedTimeActual: '23:00', wakeTimeActual: '06:24', quality: '8', notes: 'Boa consistencia.' },
+  { hoursSlept: '8.1', bedTimeActual: '22:40', wakeTimeActual: '06:46', quality: '9', notes: 'Melhor noite da sequencia.' },
+] as const;
+
+const formatDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const createPresentationSleepLogs = (): SleepLog[] => {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+
+  return presentationSleepLogTemplate.map((template, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (PRESENTATION_SLEEP_LOG_COUNT - 1 - index));
+    const dateKey = formatDateKey(date);
+
+    return {
+      id: `presentation_sleep_${dateKey}`,
+      date: dateKey,
+      timestamp: date.getTime(),
+      syncStatus: 'synced' as const,
+      ...template,
+    };
+  });
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -105,10 +151,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setIsLoading(true);
       const persistedData = await readPersistedAppData();
+      const seededSleepLogs = persistedData.isOnboarded
+        ? await seedPresentationSleepLogsIfNeeded(persistedData.sleepLogs)
+        : persistedData.sleepLogs;
 
       setIsOnboarded(persistedData.isOnboarded);
       setUserData(persistedData.userData);
-      setSleepLogs(persistedData.sleepLogs);
+      setSleepLogs(seededSleepLogs);
       setSyncQueue(persistedData.syncQueue);
       setGlobalQualityAverage(persistedData.globalQualityAverage);
     } catch (error) {
@@ -140,6 +189,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         globalQualityAverage,
       };
     }
+  };
+
+  const seedPresentationSleepLogsIfNeeded = async (currentLogs: SleepLog[]) => {
+    if (!isDevelopmentEnvironment || currentLogs.length >= PRESENTATION_SLEEP_LOG_COUNT) {
+      return currentLogs;
+    }
+
+    const existingDates = new Set(currentLogs.map((log) => log.date));
+    const presentationLogs = createPresentationSleepLogs().filter(
+      (log) => !existingDates.has(log.date),
+    );
+
+    if (!presentationLogs.length) {
+      return currentLogs;
+    }
+
+    const updatedLogs = [...presentationLogs, ...currentLogs].sort(
+      (left, right) => right.timestamp - left.timestamp,
+    );
+
+    await appStorage.setItem(STORAGE_KEYS.SLEEP_LOGS, JSON.stringify(updatedLogs));
+    setSleepLogs(updatedLogs);
+
+    return updatedLogs;
   };
 
   // ===== Load global quality metrics =====
@@ -197,6 +270,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setIsOnboarded(value);
       await appStorage.setItem(STORAGE_KEYS.IS_ONBOARDED, String(value));
+
+      if (value) {
+        await seedPresentationSleepLogsIfNeeded(sleepLogs);
+      }
     } catch (error) {
       console.error('Error saving onboarded status:', error);
     }

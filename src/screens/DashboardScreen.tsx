@@ -76,7 +76,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
         description: translations.dashboard.smartAlarmDesc,
         action: () => navigation?.navigate?.('Alarm'),
       },
-      {
+       {
         id: 'insights',
         icon: 'list',
         title: translations.dashboard.insights,
