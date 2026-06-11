@@ -141,15 +141,25 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
         const today = new Date().toISOString().split('T')[0];
         const now = new Date();
         const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const todayLog = appContext.sleepLogs.find(log => log.date === today && log.bedTimeActual);
 
-        await appContext.addSleepLog({
-          date: today,
-          wakeTimeActual: time,
-          hoursSlept,
-          quality: qualityScore,
-          notes,
-          timestamp: Date.now(),
-        });
+        if (todayLog && todayLog.id) {
+          await appContext.updateSleepLog(todayLog.id, {
+            wakeTimeActual: time,
+            hoursSlept,
+            quality: qualityScore,
+            notes,
+          });
+        } else {
+          await appContext.addSleepLog({
+            date: today,
+            wakeTimeActual: time,
+            hoursSlept,
+            quality: qualityScore,
+            notes,
+            timestamp: Date.now(),
+          });
+        }
 
         Alert.alert('✅ Registrado', 'Sua qualidade de sono foi registrada!');
 
@@ -282,27 +292,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                   </Text>
                 </View>
 
-                {/* Bed Time Info */}
-                {bedTimeActual && (
-                  <View style={styles.fieldContainer}>
-                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                      Horário que você dormiu
-                    </Text>
-                    <View
-                      style={[
-                        styles.infoBox,
-                        {
-                          backgroundColor: colors.background,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.infoText, { color: colors.text }]}>
-                        🛏️ {bedTimeActual}
-                      </Text>
-                    </View>
-                  </View>
-                )}
+
 
 
 
