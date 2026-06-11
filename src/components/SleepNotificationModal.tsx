@@ -181,7 +181,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
           style={[
             styles.modalContainer,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: colors.backgroundElevated,
               borderColor: colors.border,
             },
           ]}
@@ -304,27 +304,7 @@ export const SleepNotificationModal: React.FC<SleepNotificationModalProps> = ({
                   </View>
                 )}
 
-                {/* Hours Slept Display */}
-                <View style={styles.fieldContainer}>
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                    Horas de Sono (calculado)
-                  </Text>
-                  <View
-                    style={[
-                      styles.hoursBox,
-                      {
-                        backgroundColor: colors.accent,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.hoursText]}>
-                      {hoursSlept}h
-                    </Text>
-                  </View>
-                  <Text style={[styles.helperText, { color: colors.textMuted }]}>
-                    Baseado no horário que você dormiu
-                  </Text>
-                </View>
+
 
                 {/* Notes */}
                 <View style={styles.fieldContainer}>
