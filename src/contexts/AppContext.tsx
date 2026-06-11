@@ -192,7 +192,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const seedPresentationSleepLogsIfNeeded = async (currentLogs: SleepLog[]) => {
-    if (!isDevelopmentEnvironment || currentLogs.length >= PRESENTATION_SLEEP_LOG_COUNT) {
+    if (currentLogs.length >= PRESENTATION_SLEEP_LOG_COUNT) {
       return currentLogs;
     }
 

@@ -20,7 +20,9 @@
         "foregroundImage": "./assets/logotipo.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.bsalves.sleepandscreen"
+      "package": "com.bsalves.sleepandscreen",
+      "versionCode": 1,
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/logotipo.png"

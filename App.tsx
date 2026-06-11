@@ -21,7 +21,7 @@ function AppContent() {
 
     let unsubscribe: (() => void) | undefined;
 
-    addNotificationResponseListener((response) => {
+    const cleanup = addNotificationResponseListener((response) => {
       const notificationType = response.notification.request.content.data?.type;
 
       if (
@@ -30,9 +30,8 @@ function AppContent() {
       ) {
         appContext.showNotificationModal(notificationType);
       }
-    }).then((cleanup) => {
-      unsubscribe = cleanup;
     });
+    unsubscribe = cleanup;
 
     return () => {
       unsubscribe?.();
