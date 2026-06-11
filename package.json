@@ -23,6 +23,7 @@
     "expo": "~54.0.33",
     "expo-av": "~16.0.8",
     "expo-blur": "~14.1.5",
+    "expo-build-properties": "~1.0.10",
     "expo-device": "~8.0.10",
     "expo-file-system": "~18.1.11",
     "expo-location": "~19.0.8",
@@ -45,4 +46,3 @@
   },
   "private": true
 }
-
